@@ -57,6 +57,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      - run: sed -i 's|https://pub.flutter-io.cn|https://pub.dev|g' pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub
@@ -87,6 +88,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      - run: sed -i 's|https://pub.flutter-io.cn|https://pub.dev|g' pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - name: Configure release signing
         if: github.event_name != 'pull_request'
@@ -156,6 +158,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      - run: (Get-Content pubspec.lock) -replace 'https://pub.flutter-io.cn', 'https://pub.dev' | Set-Content pubspec.lock -Encoding utf8
       - run: flutter pub get --enforce-lockfile
       - name: Build Windows
         run: flutter build windows --release --build-name="$env:APP_VERSION" --build-number="$env:BUILD_NUMBER" --dart-define="APP_VERSION=$env:APP_VERSION"
