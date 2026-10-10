@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../widgets/update_dialog.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -27,17 +28,13 @@ class AboutScreen extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.photo_library,
-                    size: 40,
-                    color: theme.colorScheme.primary,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/icons/app_icon.png',
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.cover,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -57,6 +54,12 @@ class AboutScreen extends StatelessWidget {
                   l10n.aboutAppSub,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.tonalIcon(
+                  onPressed: () => UpdateCheckHelper.checkUpdate(context),
+                  icon: const Icon(Icons.system_update_alt, size: 18),
+                  label: Text(l10n.checkUpdates),
                 ),
               ],
             ),
@@ -110,6 +113,14 @@ class AboutScreen extends StatelessWidget {
                   onTap: () => _launch(
                     'https://github.com/YunariCloud/flexbooru-flutter',
                   ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.new_releases_outlined),
+                  title: Text(l10n.openReleasesPage),
+                  subtitle: const Text(AppConstants.githubReleasesUrl),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => _launch(AppConstants.githubReleasesUrl),
                 ),
                 const Divider(height: 1),
                 ListTile(

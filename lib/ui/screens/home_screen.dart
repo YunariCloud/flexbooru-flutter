@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
@@ -10,7 +12,9 @@ import '../../providers/blacklist_provider.dart';
 import '../../providers/booru_provider.dart';
 import '../../providers/posts_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../services/update_service.dart';
 import '../widgets/post_grid_item.dart';
+import '../widgets/update_dialog.dart';
 import 'about_screen.dart';
 import 'booru_manage_screen.dart';
 import 'booru_edit_screen.dart';
@@ -38,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initLoad();
+      _checkUpdateQuietly();
     });
   }
 
@@ -72,6 +77,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (booruProv.activeSite != null) {
       postsProv.fetchPosts(site: booruProv.activeSite!, refresh: true);
+    }
+  }
+
+  void _checkUpdateQuietly() async {
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) return;
+    try {
+      final settingsProv = context.read<SettingsProvider>();
+      if (!settingsProv.autoCheckUpdate) return;
+      final info = await UpdateService().checkUpdate();
+      if (!mounted) return;
+      if (info.hasUpdate) {
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.newVersionAvailable}: v${info.latestVersion}'),
+            action: SnackBarAction(
+              label: l10n.viewUpdate,
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => UpdateDialog(updateInfo: info),
+                );
+              },
+            ),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    } catch (_) {
+      // Quiet background check, errors are ignored
     }
   }
 
@@ -119,10 +154,34 @@ class _HomeScreenState extends State<HomeScreen> {
             : InkWell(
                 onTap: () => _showSitePicker(context, booruProv, l10n),
                 borderRadius: BorderRadius.circular(20),
-                child: Padding(
+                child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 14,
                     vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: settingsProv.useGradient
+                        ? settingsProv.primaryGradient
+                        : null,
+                    color: settingsProv.useGradient
+                        ? null
+                        : theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: settingsProv.useGradient
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : theme.colorScheme.primary.withValues(alpha: 0.25),
+                    ),
+                    boxShadow: settingsProv.useGradient
+                        ? [
+                            BoxShadow(
+                              color: settingsProv.accentColor
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -131,14 +190,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           activeSite.name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 16,
+                            color: settingsProv.useGradient
+                                ? Colors.white
+                                : theme.colorScheme.primary,
                           ),
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_drop_down, size: 22),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 20,
+                        color: settingsProv.useGradient
+                            ? Colors.white
+                            : theme.colorScheme.primary,
+                      ),
                     ],
                   ),
                 ),
@@ -217,17 +285,37 @@ class _HomeScreenState extends State<HomeScreen> {
               onRefresh: () async => _onRefresh(),
               child: _buildBody(postsProv, activeSite, columns, l10n),
             ),
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'scroll_to_top',
-        tooltip: l10n.scrollToTop,
-        child: const Icon(Icons.arrow_upward),
-        onPressed: () {
-          _scrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOut,
-          );
-        },
+      floatingActionButton: Container(
+        decoration: settingsProv.useGradient
+            ? BoxDecoration(
+                gradient: settingsProv.primaryGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: settingsProv.accentColor.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              )
+            : null,
+        child: FloatingActionButton.small(
+          backgroundColor: settingsProv.useGradient ? Colors.transparent : null,
+          elevation: settingsProv.useGradient ? 0 : null,
+          heroTag: 'scroll_to_top',
+          tooltip: l10n.scrollToTop,
+          child: Icon(
+            Icons.arrow_upward,
+            color: settingsProv.useGradient ? Colors.white : null,
+          ),
+          onPressed: () {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOut,
+            );
+          },
+        ),
       ),
     );
   }
@@ -368,6 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final theme = Theme.of(context);
     final booruProv = context.watch<BooruProvider>();
+    final settingsProv = context.watch<SettingsProvider>();
 
     return Drawer(
       child: ListView(
@@ -375,19 +464,34 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
+              gradient: settingsProv.useGradient
+                  ? settingsProv.primaryGradient
+                  : null,
+              color: settingsProv.useGradient
+                  ? null
+                  : theme.colorScheme.primaryContainer,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Icon(Icons.photo_library_outlined, size: 38),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/icons/app_icon.png',
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   l10n.appName,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onPrimaryContainer,
+                    color: settingsProv.useGradient
+                        ? Colors.white
+                        : theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
                 Text(
@@ -395,9 +499,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? '${activeSite.name} (${activeSite.typeName})'
                       : l10n.selectBooru,
                   style: TextStyle(
-                    color: theme.colorScheme.onPrimaryContainer.withValues(
-                      alpha: 0.8,
-                    ),
+                    color: settingsProv.useGradient
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : theme.colorScheme.onPrimaryContainer.withValues(
+                            alpha: 0.8,
+                          ),
                     fontSize: 13,
                   ),
                 ),

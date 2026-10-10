@@ -9,6 +9,7 @@ import 'providers/booru_provider.dart';
 import 'providers/favorites_provider.dart';
 import 'providers/posts_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/tag_translation_service.dart';
 import 'ui/screens/home_screen.dart';
 
 void main() async {
@@ -19,6 +20,9 @@ void main() async {
       statusBarIconBrightness: Brightness.light,
     ),
   );
+
+  // Initialize tag translation service (loads embedded dictionary and sqlite if available)
+  TagTranslationService().init();
 
   runApp(const FlexbooruApp());
 }
@@ -53,10 +57,18 @@ class FlexbooruApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             themeMode: settingsProv.themeMode,
-            theme: AppTheme.lightTheme(settingsProv.accentColor),
+            theme: AppTheme.lightTheme(
+              settingsProv.accentColor,
+              gradient: settingsProv.useGradient
+                  ? settingsProv.primaryGradient
+                  : null,
+            ),
             darkTheme: AppTheme.darkTheme(
               settingsProv.accentColor,
               amoled: settingsProv.amoled,
+              gradient: settingsProv.useGradient
+                  ? settingsProv.primaryGradient
+                  : null,
             ),
             home: const HomeScreen(),
           );

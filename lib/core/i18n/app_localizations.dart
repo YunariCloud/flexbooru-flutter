@@ -178,8 +178,22 @@ class AppLocalizations {
   String get amoledBlack => isZh ? 'AMOLED 纯黑' : 'AMOLED Pure Black';
   String get amoledBlackSub =>
       isZh ? '为 OLED 屏幕提供纯黑省电背景' : 'Pitch black background for OLED screens';
-  String get accentColor => isZh ? '主题强调色' : 'Accent Color';
-  String get chooseAccentColor => isZh ? '选择主题强调色' : 'Choose Accent Color';
+  String get accentColor => isZh ? '主题配色与渐变' : 'Theme Color & Gradient';
+  String get chooseAccentColor => isZh ? '选择主题配色' : 'Choose Theme Color';
+  String get chooseThemeColor => isZh ? '主题配色与渐变' : 'Theme Color & Gradient';
+  String get gradientPresets => isZh ? '精选渐变' : 'Gradient Presets';
+  String get solidPresets => isZh ? '经典纯色' : 'Solid Colors';
+  String get customColors => isZh ? '自定义调色' : 'Custom';
+  String get enableGradient => isZh ? '启用双色渐变' : 'Enable Two-Color Gradient';
+  String get gradientEnabled => isZh ? '双色渐变' : 'Gradient';
+  String get solidColor => isZh ? '经典纯色' : 'Solid Color';
+  String get startColor => isZh ? '起始颜色' : 'Start Color';
+  String get endColor => isZh ? '结束颜色' : 'End Color';
+  String get hexCode => isZh ? '十六进制色值' : 'Hex Code';
+  String get livePreview => isZh ? '效果预览' : 'Preview';
+  String get applyColor => isZh ? '应用配色' : 'Apply Palette';
+  String get invalidHexColor =>
+      isZh ? '请输入有效的十六进制色值 (如 #3F51B5)' : 'Please enter a valid hex color (e.g. #3F51B5)';
   String get layoutDisplay => isZh ? '布局与画质' : 'Layout & Display';
   String get gridColumns => isZh ? '瀑布流列数' : 'Grid Columns';
   String get gridAuto => isZh ? '自适应屏幕' : 'Auto';
@@ -212,6 +226,102 @@ class AppLocalizations {
   String get currentProject =>
       isZh ? '本项目：Flexbooru Flutter' : 'This project: Flexbooru Flutter';
   String get license => isZh ? '开源授权' : 'License';
+
+  // Update
+  String get checkUpdates => isZh ? '检查更新' : 'Check for Updates';
+  String get checkingUpdates => isZh ? '正在检查新版本...' : 'Checking for updates...';
+  String get currentVersion => isZh ? '当前版本' : 'Current Version';
+  String get latestVersion => isZh ? '最新版本' : 'Latest Version';
+  String get alreadyLatestVersion =>
+      isZh ? '当前已是最新版本' : 'Already running the latest version';
+  String get newVersionAvailable => isZh ? '发现新版本' : 'New Version Available';
+  String get viewUpdate => isZh ? '前往下载 / 查看' : 'Download / View';
+  String get updateNotes => isZh ? '更新说明' : 'Release Notes';
+  String get later => isZh ? '稍后再说' : 'Later';
+  String get checkUpdateFailed =>
+      isZh ? '检查更新失败，请检查网络或稍后重试' : 'Failed to check for updates, please check network and try again';
+  String get openReleasesPage =>
+      isZh ? '前往 Releases 页面' : 'Open Releases Page';
+  String get autoCheckUpdates => isZh ? '启动时检查更新' : 'Check Updates on Startup';
+  String get autoCheckUpdatesSub =>
+      isZh ? '应用启动时自动检测是否有可用新版本' : 'Automatically check for new versions on app startup';
+
+  // Download Settings
+  String get downloadSettings => isZh ? '下载设置' : 'Download Settings';
+  String get downloadPath => isZh ? '图片下载路径' : 'Download Directory';
+  String get downloadPathSub => isZh
+      ? '保存已下载作品原图与大图的存储位置'
+      : 'Location to store downloaded images and videos';
+  String get defaultPath => isZh ? '默认' : 'Default';
+  String get chooseDownloadPath => isZh ? '设置下载目录' : 'Set Download Directory';
+  String get downloadPathHint =>
+      isZh ? '请输入完整的文件夹路径...' : 'Enter full directory path...';
+  String get pathPresets => isZh ? '常用目录预设' : 'Quick Presets';
+  String get presetDownloads =>
+      isZh ? '系统下载目录 (Downloads)' : 'Downloads Folder';
+  String get presetPictures => isZh ? '系统图片目录 (Pictures)' : 'Pictures Folder';
+  String get presetAppDir => isZh ? '应用专属目录 (App)' : 'App Documents Folder';
+  String get openFolder => isZh ? '打开文件夹' : 'Open Folder';
+  String get browseViaSystemDialog =>
+      isZh ? '调用系统选择器浏览' : 'Browse via System Dialog';
+  String get browseFolder => isZh ? '浏览文件夹' : 'Browse Folder';
+  String get pickingFolder =>
+      isZh ? '正在等待系统选择器...' : 'Waiting for system dialog...';
+  String get pathNotWritable => isZh
+      ? '该路径无法创建或无写入权限，请检查路径有效性'
+      : 'Path cannot be created or is not writable, please verify';
+  String get pathSaved => isZh ? '下载路径已更新' : 'Download path updated';
+
+  // Tag Translation & Detail Layout
+  String get tagLanguage => isZh ? 'Tag 显示语言' : 'Tag Display Language';
+  String get tagLanguageDesc => isZh
+      ? '设置标签显示中文翻译或英文原名（默认跟随应用语言）'
+      : 'Choose to display tags in Chinese translation or English';
+  String get tagLangZh => isZh ? '中文' : 'Chinese';
+  String get tagLangEn => isZh ? '英文' : 'English';
+  String get tagLangSystem =>
+      isZh ? '跟随当前语言 (默认)' : 'Follow App Language (Default)';
+  String get tagDatabase =>
+      isZh ? 'Danbooru 标签汉化词库' : 'Danbooru Tag Translation Dictionary';
+  String get tagDatabaseDesc => isZh
+      ? '基于 ffdkj-Danbooru_Tag-Chinese-English 词库映射'
+      : 'Powered by ffdkj/ffdkj-Danbooru_Tag-Chinese-English-Translation-Table';
+  String get checkTagDbUpdate => isZh ? '检查词库更新' : 'Check Dictionary Update';
+  String get downloadTagDb =>
+      isZh ? '下载完整词库 (33万+ 标签)' : 'Download Full Dictionary (330k+ tags)';
+  String get tagDbReady => isZh ? '完整词库已就绪' : 'Full dictionary ready';
+  String get tagDbEmbedded =>
+      isZh ? '内置精选词库 (3,500+ 高频标签)' : 'Built-in popular dictionary (3,500+ tags)';
+  String get tagDbUpToDate =>
+      isZh ? '词库已是最新版本' : 'Dictionary is up to date';
+  String get tagDbUpdateFound =>
+      isZh ? '发现新版标签词库' : 'New tag dictionary update available';
+  String get tagDbDownloading =>
+      isZh ? '正在下载标签词库...' : 'Downloading tag dictionary...';
+  String get tagDbUpdatedSuccess =>
+      isZh ? '标签词库已成功更新' : 'Tag dictionary updated successfully';
+  String tagDbTotalTags(int count) =>
+      isZh ? '已加载 $count 条标签' : '$count tags loaded';
+  String get searchTag => isZh ? '在本站搜索此标签' : 'Search this tag on site';
+  String get copyTag => isZh ? '复制标签名' : 'Copy tag name';
+  String get copyTagZh => isZh ? '复制中文释义' : 'Copy Chinese translation';
+  String get tagDetails => isZh ? '标签详情' : 'Tag Details';
+  String get categoryArtist => isZh ? '画师' : 'Artist';
+  String get categoryCharacter => isZh ? '角色' : 'Character';
+  String get categoryCopyright => isZh ? '原作' : 'Copyright';
+  String get categoryGeneral => isZh ? '普通' : 'General';
+  String get categoryMeta => isZh ? '元标签' : 'Meta';
+  String get categoryCircle => isZh ? '社团' : 'Circle';
+  String get categoryFaults => isZh ? '缺陷' : 'Faults';
+  String get openInBrowser => isZh ? '在浏览器中打开' : 'Open in Browser';
+  String get copyPostUrl => isZh ? '复制帖子链接' : 'Copy Post Link';
+  String get copiedPostUrl =>
+      isZh ? '已复制帖子链接到剪贴板' : 'Post URL copied to clipboard';
+  String copiedTag(String name) =>
+      isZh ? '已复制标签 "$name"' : 'Copied tag "$name"';
+  String get aspectRatio => isZh ? '长宽比' : 'Aspect Ratio';
+  String get format => isZh ? '格式' : 'Format';
+  String get toggleTagLang => isZh ? '中/英切换' : 'ZH/EN Toggle';
 }
 
 class _AppLocalizationsDelegate

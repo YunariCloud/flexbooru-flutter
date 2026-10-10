@@ -46,3 +46,6 @@ app.*.map.json
 
 # Original cloned repo for migration reference
 original_repo/
+
+# Distribution artifacts
+dist/

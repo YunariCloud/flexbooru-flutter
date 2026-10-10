@@ -37,10 +37,11 @@ class TagCategory {
   static const int studio = 2;
   static const int copyright = 3;
   static const int character = 4;
-  static const int circle = 5;
+  static const int meta = 5;
   static const int faults = 6;
+  static const int circle = 7;
   static const int medium = 8;
-  static const int meta = 9;
+  static const int legacyMeta = 9;
 
   static String getCategoryName(int category) {
     switch (category) {
@@ -50,11 +51,13 @@ class TagCategory {
         return 'Copyright';
       case character:
         return 'Character';
-      case circle:
       case studio:
-        return 'Circle / Studio';
+        return 'Studio';
       case meta:
+      case legacyMeta:
         return 'Meta';
+      case circle:
+        return 'Circle';
       case faults:
         return 'Faults';
       case general:
@@ -62,12 +65,43 @@ class TagCategory {
         return 'General';
     }
   }
+
+  static String getCategoryNameZh(int category) {
+    switch (category) {
+      case artist:
+        return '画师';
+      case copyright:
+        return '原作';
+      case character:
+        return '角色';
+      case studio:
+      case circle:
+        return '社团';
+      case meta:
+      case legacyMeta:
+        return '元标签';
+      case faults:
+        return '缺陷';
+      case general:
+      default:
+        return '普通';
+    }
+  }
 }
 
 class AppConstants {
   static const String appName = 'Flexbooru';
+  static const String rawVersion =
+      String.fromEnvironment('APP_VERSION', defaultValue: '1.1.0');
   static const String appVersion =
-      '${String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0')} (Flutter Edition)';
+      '$rawVersion (Flutter Edition)';
+  static const String githubRepo = 'YunariCloud/flexbooru-flutter';
+  static const String githubReleasesUrl =
+      'https://github.com/$githubRepo/releases';
+  static const String githubLatestReleaseApi =
+      'https://api.github.com/repos/$githubRepo/releases/latest';
+  static const String githubLatestReleasePage =
+      'https://github.com/$githubRepo/releases/latest';
 
   static const String defaultUserAgent =
       'Flexbooru/2.0 (Flutter; Booru client)';

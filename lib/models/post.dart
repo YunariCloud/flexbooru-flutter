@@ -44,6 +44,48 @@ class Post {
     this.isFavored = false,
   });
 
+  Post copyWith({
+    Object? id,
+    String? booruId,
+    int? width,
+    int? height,
+    int? fileSize,
+    int? score,
+    String? rating,
+    String? previewUrl,
+    String? sampleUrl,
+    String? originUrl,
+    String? source,
+    int? pixivId,
+    DateTime? createdAt,
+    List<Tag>? tags,
+    String? tagString,
+    String? uploader,
+    Object? uploaderId,
+    bool? isFavored,
+  }) {
+    return Post(
+      id: id ?? this.id,
+      booruId: booruId ?? this.booruId,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      fileSize: fileSize ?? this.fileSize,
+      score: score ?? this.score,
+      rating: rating ?? this.rating,
+      previewUrl: previewUrl ?? this.previewUrl,
+      sampleUrl: sampleUrl ?? this.sampleUrl,
+      originUrl: originUrl ?? this.originUrl,
+      source: source ?? this.source,
+      pixivId: pixivId ?? this.pixivId,
+      createdAt: createdAt ?? this.createdAt,
+      tags: tags ?? this.tags,
+      tagString: tagString ?? this.tagString,
+      uploader: uploader ?? this.uploader,
+      uploaderId: uploaderId ?? this.uploaderId,
+      isFavored: isFavored ?? this.isFavored,
+    );
+  }
+
   double get aspectRatio {
     if (width <= 0 || height <= 0) return 1.0;
     return width / height;
