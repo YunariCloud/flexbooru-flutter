@@ -69,7 +69,10 @@ class AppConstants {
   static const String appVersion = '2.0.0 (Flutter Edition)';
 
   static const String defaultUserAgent =
+      'Flexbooru/2.0 (Flutter; Booru client)';
+  static const String defaultBrowserUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+  static const String legacyUserAgent = defaultBrowserUserAgent;
   static const String mobileUserAgent =
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 

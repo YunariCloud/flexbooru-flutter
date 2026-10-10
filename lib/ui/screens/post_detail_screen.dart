@@ -47,7 +47,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       _downloadProgress = 0;
     });
 
-    final targetUrl = _post.originUrl.isNotEmpty ? _post.originUrl : _post.sampleUrl;
+    final targetUrl = _post.originUrl.isNotEmpty
+        ? _post.originUrl
+        : _post.sampleUrl;
 
     try {
       final savedPath = await FileDownloader.downloadFile(
@@ -92,18 +94,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   void _sharePost() {
-    final postUrl = '${widget.site.baseUrl}/posts/${_post.id}';
-    final imgUrl = _post.originUrl.isNotEmpty ? _post.originUrl : _post.sampleUrl;
+    final postUrl = '${widget.site.websiteUrl}/posts/${_post.id}';
+    final imgUrl = _post.originUrl.isNotEmpty
+        ? _post.originUrl
+        : _post.sampleUrl;
     SharePlus.instance.share(
       ShareParams(
-        text: 'Check out this artwork (#${_post.id}) on ${widget.site.name}: $imgUrl\n$postUrl',
+        text:
+            'Check out this artwork (#${_post.id}) on ${widget.site.name}: $imgUrl\n$postUrl',
       ),
     );
   }
 
   void _openSauceNao() async {
-    final imgUrl = _post.sampleUrl.isNotEmpty ? _post.sampleUrl : _post.previewUrl;
-    final sauceUrl = Uri.parse('https://saucenao.com/search.php?url=${Uri.encodeComponent(imgUrl)}');
+    final imgUrl = _post.sampleUrl.isNotEmpty
+        ? _post.sampleUrl
+        : _post.previewUrl;
+    final sauceUrl = Uri.parse(
+      'https://saucenao.com/search.php?url=${Uri.encodeComponent(imgUrl)}',
+    );
     if (await canLaunchUrl(sauceUrl)) {
       await launchUrl(sauceUrl, mode: LaunchMode.externalApplication);
     }
@@ -143,7 +152,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   const SizedBox(height: 16),
                   Text(
                     l10n.postDetailsTitle(_post.id),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -153,7 +165,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       padding: const EdgeInsets.all(12.0),
                       child: Column(
                         children: [
-                          _buildInfoRow(l10n.dimensions, '${_post.width} × ${_post.height}'),
+                          _buildInfoRow(
+                            l10n.dimensions,
+                            '${_post.width} × ${_post.height}',
+                          ),
                           const Divider(height: 12),
                           _buildInfoRow(l10n.rating, _post.ratingDisplay),
                           const Divider(height: 12),
@@ -162,25 +177,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             const Divider(height: 12),
                             _buildInfoRow(l10n.uploader, _post.uploader),
                           ],
-                          if (_post.source != null && _post.source!.isNotEmpty) ...[
+                          if (_post.source != null &&
+                              _post.source!.isNotEmpty) ...[
                             const Divider(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(l10n.source, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                Text(
+                                  l10n.source,
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
+                                  ),
+                                ),
                                 Flexible(
                                   child: InkWell(
                                     onTap: () async {
                                       final uri = Uri.tryParse(_post.source!);
-                                      if (uri != null && await canLaunchUrl(uri)) {
-                                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                      if (uri != null &&
+                                          await canLaunchUrl(uri)) {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
                                       }
                                     },
                                     child: Text(
                                       _post.source!,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                         fontSize: 13,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -201,16 +229,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     children: [
                       Text(
                         l10n.tagsCount(_post.tags.length),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       TextButton.icon(
                         icon: const Icon(Icons.copy, size: 16),
                         label: Text(l10n.copyAll),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: _post.tagString));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.copied)),
+                          Clipboard.setData(
+                            ClipboardData(text: _post.tagString),
                           );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(l10n.copied)));
                         },
                       ),
                     ],
@@ -246,7 +279,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           expand: false,
           builder: (context, scrollController) {
             return FutureBuilder(
-              future: BooruService().getComments(site: widget.site, postId: _post.id),
+              future: BooruService().getComments(
+                site: widget.site,
+                postId: _post.id,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -270,7 +306,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       const SizedBox(height: 16),
                       Text(
                         l10n.commentsCount(comments.length),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Expanded(
@@ -285,9 +324,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   return ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     leading: CircleAvatar(
-                                      child: Text(c.author.isNotEmpty ? c.author[0].toUpperCase() : '?'),
+                                      child: Text(
+                                        c.author.isNotEmpty
+                                            ? c.author[0].toUpperCase()
+                                            : '?',
+                                      ),
                                     ),
-                                    title: Text(c.author, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    title: Text(
+                                      c.author,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                     subtitle: Padding(
                                       padding: const EdgeInsets.only(top: 4.0),
                                       child: Text(c.body),
@@ -312,7 +360,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        ),
       ],
     );
   }
@@ -333,7 +384,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black.withValues(alpha: 0.6),
         foregroundColor: Colors.white,
-        title: Text('#${_post.id} (${widget.site.name})', style: const TextStyle(fontSize: 16)),
+        title: Text(
+          '#${_post.id} (${widget.site.name})',
+          style: const TextStyle(fontSize: 16),
+        ),
         actions: [
           // Original / Sample resolution switcher
           if (_post.originUrl.isNotEmpty && _post.originUrl != _post.sampleUrl)
@@ -380,7 +434,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   child: CircularProgressIndicator(
                     value: event == null || event.expectedTotalBytes == null
                         ? null
-                        : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
+                        : event.cumulativeBytesLoaded /
+                              event.expectedTotalBytes!,
                     color: Colors.white,
                     strokeWidth: 2.5,
                   ),
@@ -392,9 +447,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.broken_image, size: 56, color: Colors.white60),
+                    const Icon(
+                      Icons.broken_image,
+                      size: 56,
+                      color: Colors.white60,
+                    ),
                     const SizedBox(height: 12),
-                    Text(l10n.failedToLoadFullImage, style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      l10n.failedToLoadFullImage,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () => setState(() {}),
@@ -414,7 +476,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               bottom: 70,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(24),
@@ -426,7 +491,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                          value: _downloadProgress > 0 ? _downloadProgress : null,
+                          value: _downloadProgress > 0
+                              ? _downloadProgress
+                              : null,
                           strokeWidth: 2,
                           color: Colors.white,
                         ),
@@ -434,7 +501,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       const SizedBox(width: 12),
                       Text(
                         '${l10n.downloading} ${(_downloadProgress * 100).toInt()}%...',
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),

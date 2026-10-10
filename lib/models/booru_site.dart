@@ -28,9 +28,41 @@ class BooruSite {
 
   String get baseUrl => '$scheme://$host';
 
+  // Resolve known API hosts at request time so saved sites also get the fix.
+  String get apiBaseUrl {
+    final domain = host.toLowerCase();
+    if ((type == BooruType.gelbooru || type == BooruType.gelbooruLegacy) &&
+        (domain == 'rule34.xxx' || domain == 'www.rule34.xxx')) {
+      return 'https://api.rule34.xxx';
+    }
+    if (type == BooruType.sankaku &&
+        (domain == 'capi-v2.sankakucomplex.com' ||
+            domain == 'chan.sankakucomplex.com')) {
+      return 'https://sankakuapi.com';
+    }
+    return baseUrl;
+  }
+
+  String get websiteUrl {
+    if (host == 'api.rule34.xxx') return 'https://rule34.xxx';
+    if (type == BooruType.sankaku) return 'https://sankaku.app';
+    return baseUrl;
+  }
+
+  bool get hasApiCredentials =>
+      (username?.trim().isNotEmpty ?? false) &&
+      (token?.trim().isNotEmpty ?? false);
+
   String get typeName => BooruType.getTypeName(type);
 
-  bool get hasAuth => (username != null && username!.isNotEmpty) || (token != null && token!.isNotEmpty);
+  bool get isRetiredPreset {
+    final domain = host.trim().toLowerCase();
+    return domain == 'lolibooru.moe' || domain == 'www.lolibooru.moe';
+  }
+
+  bool get hasAuth =>
+      (username != null && username!.isNotEmpty) ||
+      (token != null && token!.isNotEmpty);
 
   Map<String, dynamic> toJson() {
     return {
@@ -49,7 +81,9 @@ class BooruSite {
 
   factory BooruSite.fromJson(Map<String, dynamic> json) {
     return BooruSite(
-      id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          json['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       name: json['name'] ?? '',
       scheme: json['scheme'] ?? 'https',
       host: json['host'] ?? '',
@@ -58,7 +92,11 @@ class BooruSite {
       path: json['path'],
       username: json['username'] ?? json['user']?['name'],
       token: json['token'] ?? json['user']?['token'],
-      blacklists: (json['blacklists'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      blacklists:
+          (json['blacklists'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 
@@ -173,13 +211,6 @@ class BooruSite {
       type: BooruType.gelbooru,
     ),
     BooruSite(
-      id: 'lolibooru',
-      name: 'Lolibooru',
-      scheme: 'https',
-      host: 'lolibooru.moe',
-      type: BooruType.moebooru,
-    ),
-    BooruSite(
       id: 'rule34',
       name: 'Rule34.xxx',
       scheme: 'https',
@@ -204,7 +235,7 @@ class BooruSite {
       id: 'sankaku',
       name: 'Sankaku Complex',
       scheme: 'https',
-      host: 'capi-v2.sankakucomplex.com',
+      host: 'sankakuapi.com',
       type: BooruType.sankaku,
     ),
   ];

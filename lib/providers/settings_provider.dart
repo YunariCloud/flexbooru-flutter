@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_constants.dart';
+import '../core/network/api_client.dart';
 
 class SettingsProvider extends ChangeNotifier {
   static const String _keyThemeMode = 'flex_theme_mode';
@@ -58,7 +59,14 @@ class SettingsProvider extends ChangeNotifier {
     }
     _gridColumns = prefs.getInt(_keyColumns) ?? 0;
     _defaultSafeMode = prefs.getBool(_keySafeMode) ?? true;
-    _userAgent = prefs.getString(_keyUserAgent) ?? AppConstants.defaultUserAgent;
+    _userAgent =
+        prefs.getString(_keyUserAgent) ?? AppConstants.defaultUserAgent;
+    if (_userAgent.trim().isEmpty ||
+        _userAgent == AppConstants.legacyUserAgent) {
+      _userAgent = AppConstants.defaultUserAgent;
+      await prefs.setString(_keyUserAgent, _userAgent);
+    }
+    ApiClient().setUserAgent(_userAgent);
     _imageQuality = prefs.getString(_keyQuality) ?? 'sample';
     _languageCode = prefs.getString(_keyLanguage) ?? 'system';
 
@@ -108,9 +116,10 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> setUserAgent(String ua) async {
-    _userAgent = ua;
+    _userAgent = ua.trim().isEmpty ? AppConstants.defaultUserAgent : ua.trim();
+    ApiClient().setUserAgent(_userAgent);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyUserAgent, ua);
+    await prefs.setString(_keyUserAgent, _userAgent);
     notifyListeners();
   }
 

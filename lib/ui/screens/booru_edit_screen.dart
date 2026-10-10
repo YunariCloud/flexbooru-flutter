@@ -75,10 +75,12 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
         scheme: _scheme,
         host: host,
         type: _type,
-        path: _pathController.text.trim().isNotEmpty ? _pathController.text.trim() : null,
+        path: _pathController.text.trim().isNotEmpty
+            ? _pathController.text.trim()
+            : null,
         hashSalt: _hashSaltController.text.trim(),
-        username: _userController.text.trim().isNotEmpty ? _userController.text.trim() : null,
-        token: _tokenController.text.trim().isNotEmpty ? _tokenController.text.trim() : null,
+        username: _userController.text.trim(),
+        token: _tokenController.text.trim(),
       );
       booruProv.updateSite(updated);
     } else {
@@ -88,10 +90,16 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
         scheme: _scheme,
         host: host,
         type: _type,
-        path: _pathController.text.trim().isNotEmpty ? _pathController.text.trim() : null,
+        path: _pathController.text.trim().isNotEmpty
+            ? _pathController.text.trim()
+            : null,
         hashSalt: _hashSaltController.text.trim(),
-        username: _userController.text.trim().isNotEmpty ? _userController.text.trim() : null,
-        token: _tokenController.text.trim().isNotEmpty ? _tokenController.text.trim() : null,
+        username: _userController.text.trim().isNotEmpty
+            ? _userController.text.trim()
+            : null,
+        token: _tokenController.text.trim().isNotEmpty
+            ? _tokenController.text.trim()
+            : null,
       );
       booruProv.addSite(newSite);
     }
@@ -127,7 +135,8 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                 hintText: 'e.g. My Anime Booru',
                 border: const OutlineInputBorder(),
               ),
-              validator: (v) => v == null || v.trim().isEmpty ? l10n.booruName : null,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? l10n.booruName : null,
             ),
             const SizedBox(height: 16),
 
@@ -150,7 +159,8 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                       hintText: 'e.g. danbooru.donmai.us',
                       border: const OutlineInputBorder(),
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty ? l10n.hostDomain : null,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? l10n.hostDomain : null,
                   ),
                 ),
               ],
@@ -164,12 +174,30 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                 border: const OutlineInputBorder(),
               ),
               items: [
-                DropdownMenuItem(value: BooruType.danbooru, child: Text(BooruType.getTypeName(BooruType.danbooru))),
-                DropdownMenuItem(value: BooruType.moebooru, child: Text(BooruType.getTypeName(BooruType.moebooru))),
-                DropdownMenuItem(value: BooruType.gelbooru, child: Text(BooruType.getTypeName(BooruType.gelbooru))),
-                DropdownMenuItem(value: BooruType.sankaku, child: Text(BooruType.getTypeName(BooruType.sankaku))),
-                DropdownMenuItem(value: BooruType.shimmie, child: Text(BooruType.getTypeName(BooruType.shimmie))),
-                DropdownMenuItem(value: BooruType.danbooru1, child: Text(BooruType.getTypeName(BooruType.danbooru1))),
+                DropdownMenuItem(
+                  value: BooruType.danbooru,
+                  child: Text(BooruType.getTypeName(BooruType.danbooru)),
+                ),
+                DropdownMenuItem(
+                  value: BooruType.moebooru,
+                  child: Text(BooruType.getTypeName(BooruType.moebooru)),
+                ),
+                DropdownMenuItem(
+                  value: BooruType.gelbooru,
+                  child: Text(BooruType.getTypeName(BooruType.gelbooru)),
+                ),
+                DropdownMenuItem(
+                  value: BooruType.sankaku,
+                  child: Text(BooruType.getTypeName(BooruType.sankaku)),
+                ),
+                DropdownMenuItem(
+                  value: BooruType.shimmie,
+                  child: Text(BooruType.getTypeName(BooruType.shimmie)),
+                ),
+                DropdownMenuItem(
+                  value: BooruType.danbooru1,
+                  child: Text(BooruType.getTypeName(BooruType.danbooru1)),
+                ),
               ],
               onChanged: (v) => setState(() => _type = v ?? BooruType.moebooru),
             ),
@@ -199,7 +227,12 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
             ],
 
             const Divider(),
-            Text(l10n.authOptional, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              l10n.authOptional,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(l10n.apiCredentialsHint),
             const SizedBox(height: 12),
 
             TextFormField(
@@ -213,6 +246,7 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
 
             TextFormField(
               controller: _tokenController,
+              obscureText: true,
               decoration: InputDecoration(
                 labelText: l10n.tokenOrPassword,
                 border: const OutlineInputBorder(),

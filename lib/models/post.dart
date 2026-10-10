@@ -3,7 +3,8 @@ import '../core/utils/url_util.dart';
 import 'tag.dart';
 
 class Post {
-  final int id;
+  // Sankaku uses opaque string IDs; older engines still use integer IDs.
+  final Object id;
   final String booruId;
   final int width;
   final int height;
@@ -19,7 +20,7 @@ class Post {
   final List<Tag> tags;
   final String tagString;
   final String uploader;
-  final int? uploaderId;
+  final Object? uploaderId;
   bool isFavored;
 
   Post({
@@ -118,7 +119,7 @@ class Post {
   };
 
   factory Post.fromJson(Map<String, dynamic> json) => Post(
-    id: json['id'] as int? ?? 0,
+    id: json['id'] is String || json['id'] is int ? json['id'] as Object : 0,
     booruId: json['booruId']?.toString() ?? '',
     width: json['width'] as int? ?? 0,
     height: json['height'] as int? ?? 0,
@@ -130,11 +131,17 @@ class Post {
     originUrl: json['originUrl']?.toString() ?? '',
     source: json['source']?.toString(),
     pixivId: json['pixivId'] as int?,
-    createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
-    tags: (json['tags'] as List<dynamic>?)?.map((t) => Tag.fromJson(t as Map<String, dynamic>)).toList() ?? [],
+    createdAt: json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'])
+        : null,
+    tags:
+        (json['tags'] as List<dynamic>?)
+            ?.map((t) => Tag.fromJson(t as Map<String, dynamic>))
+            .toList() ??
+        [],
     tagString: json['tagString']?.toString() ?? '',
     uploader: json['uploader']?.toString() ?? '',
-    uploaderId: json['uploaderId'] as int?,
+    uploaderId: json['uploaderId'],
     isFavored: json['isFavored'] as bool? ?? false,
   );
 }

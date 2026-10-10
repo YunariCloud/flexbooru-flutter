@@ -30,13 +30,18 @@ class BooruProvider extends ChangeNotifier {
     if (sitesJson != null && sitesJson.isNotEmpty) {
       try {
         final List<dynamic> list = jsonDecode(sitesJson);
-        _sites = list.map((e) => BooruSite.fromJson(e as Map<String, dynamic>)).toList();
+        _sites = list
+            .map((e) => BooruSite.fromJson(e as Map<String, dynamic>))
+            .toList();
       } catch (_) {
         _sites = BooruSite.defaultPresets;
       }
     } else {
       _sites = BooruSite.defaultPresets;
     }
+
+    final hadRetiredSites = _sites.any((site) => site.isRetiredPreset);
+    _sites.removeWhere((site) => site.isRetiredPreset);
 
     if (_sites.isEmpty) {
       _sites = BooruSite.defaultPresets;
@@ -49,6 +54,10 @@ class BooruProvider extends ChangeNotifier {
       );
     } else {
       _activeSite = _sites.first;
+    }
+
+    if (hadRetiredSites) {
+      await _saveSites();
     }
 
     _isLoading = false;
@@ -123,7 +132,9 @@ class BooruProvider extends ChangeNotifier {
   Future<bool> importFromJson(String jsonString) async {
     try {
       final List<dynamic> list = jsonDecode(jsonString);
-      final imported = list.map((e) => BooruSite.fromJson(e as Map<String, dynamic>)).toList();
+      final imported = list
+          .map((e) => BooruSite.fromJson(e as Map<String, dynamic>))
+          .toList();
       if (imported.isNotEmpty) {
         _sites.addAll(imported);
         await _saveSites();

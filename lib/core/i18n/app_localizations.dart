@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../network/booru_api_exception.dart';
 
 class AppLocalizations {
   final Locale locale;
@@ -27,6 +28,15 @@ class AppLocalizations {
   String get copied => isZh ? '已复制到剪贴板' : 'Copied to clipboard';
   String get failedToLoad => isZh ? '加载失败' : 'Failed to load';
   String get noPostsFound => isZh ? '未找到相关作品' : 'No posts found';
+  String networkError(BooruApiException error) => error.describe(chinese: isZh);
+  String get openSiteInBrowser => isZh ? '在浏览器检查站点' : 'Check site in browser';
+  String get configureCredentials => isZh ? '配置站点认证' : 'Configure credentials';
+  String get noSafePostsHint => isZh
+      ? '安全模式已开启，当前查询可能没有符合安全分级的作品。'
+      : 'Safe mode is on; this query may have no posts with a safe rating.';
+  String get apiCredentialsHint => isZh
+      ? 'Gelbooru / Rule34 API 可能要求认证：填写账户设置页的数字 User ID 和 API Key，而非登录密码。Sankaku 使用访问 Token。'
+      : 'Gelbooru / Rule34 APIs may require authentication: enter the numeric user ID and API key from account settings, rather than your password. Sankaku uses an access token.';
 
   // Drawer & Nav
   String get postsFeed => isZh ? '作品流' : 'Posts Feed';
@@ -63,7 +73,8 @@ class AppLocalizations {
       : 'Danbooru notice: Queries over 2 tags will use client-side filtering to prevent HTTP 422 error.';
 
   // Post Detail
-  String postDetailsTitle(int id) => isZh ? '作品 #$id 详情' : 'Post #$id Details';
+  String postDetailsTitle(Object id) =>
+      isZh ? '作品 #$id 详情' : 'Post #$id Details';
   String get dimensions => isZh ? '分辨率' : 'Dimensions';
   String get rating => isZh ? '分级' : 'Rating';
   String get score => isZh ? '评分' : 'Score';
@@ -78,35 +89,45 @@ class AppLocalizations {
   String savedTo(String path) => isZh ? '已保存至: $path' : 'Saved to: $path';
   String get downloadFailed => isZh ? '下载失败' : 'Download failed';
   String get share => isZh ? '分享' : 'Share';
-  String get reverseSearch => isZh ? '以图搜图 (SauceNAO)' : 'Reverse search (SauceNAO)';
+  String get reverseSearch =>
+      isZh ? '以图搜图 (SauceNAO)' : 'Reverse search (SauceNAO)';
   String get original => isZh ? '原图' : 'ORIGINAL';
   String get sample => isZh ? '大图' : 'SAMPLE';
-  String get failedToLoadFullImage => isZh ? '无法加载完整图片' : 'Failed to load full image';
+  String get failedToLoadFullImage =>
+      isZh ? '无法加载完整图片' : 'Failed to load full image';
   String get addFavorite => isZh ? '添加收藏' : 'Save Favorite';
   String get removeFavorite => isZh ? '取消收藏' : 'Remove Favorite';
 
   // Manage Booru
   String get addBooru => isZh ? '添加 Booru' : 'Add Booru';
   String get addFromPresets => isZh ? '从预设添加' : 'Add from Presets';
-  String get addFromPresetsSub =>
-      isZh ? '快速添加 Danbooru、Gelbooru、Safebooru 等' : 'Choose from Danbooru, Gelbooru, Safebooru, etc.';
+  String get addFromPresetsSub => isZh
+      ? '快速添加 Danbooru、Gelbooru、Safebooru 等'
+      : 'Choose from Danbooru, Gelbooru, Safebooru, etc.';
   String get addManually => isZh ? '手动添加' : 'Add Manually';
-  String get addManuallySub =>
-      isZh ? '输入自定义站点域名、引擎类型及账号凭据' : 'Enter custom domain, engine type, credentials';
-  String get importFromClipboard => isZh ? '从剪贴板导入 (booru:// URI)' : 'Import from Clipboard (booru:// URI)';
+  String get addManuallySub => isZh
+      ? '输入自定义站点域名、引擎类型及账号凭据'
+      : 'Enter custom domain, engine type, credentials';
+  String get importFromClipboard =>
+      isZh ? '从剪贴板导入 (booru:// URI)' : 'Import from Clipboard (booru:// URI)';
   String get importFromClipboardSub =>
       isZh ? '粘贴 Flexbooru 格式分享链接或 JSON' : 'Paste Flexbooru URL or JSON';
-  String get exportAllJson => isZh ? '导出站点配置 (JSON)' : 'Export All Sites (JSON)';
+  String get exportAllJson =>
+      isZh ? '导出站点配置 (JSON)' : 'Export All Sites (JSON)';
   String get resetPresets => isZh ? '恢复默认预设' : 'Reset to Default Presets';
-  String get resetPresetsConfirm =>
-      isZh ? '这将重置所有站点为默认预设列表。' : 'This will reset your Booru list to default presets.';
+  String get resetPresetsConfirm => isZh
+      ? '这将重置所有站点为默认预设列表。'
+      : 'This will reset your Booru list to default presets.';
   String get copyBooruUri => isZh ? '复制 booru:// 分享链接' : 'Copy booru:// URI';
   String get edit => isZh ? '编辑' : 'Edit';
   String get activeSite => isZh ? '当前使用中' : 'Active';
   String get cannotDeleteLastSite =>
       isZh ? '无法删除最后一个站点' : 'Cannot delete the only remaining site';
-  String get importSuccess => isZh ? '成功导入 Booru 站点！' : 'Successfully imported Booru site!';
-  String get importFailed => isZh ? '导入失败：格式非法 (需为 booru:// 或 JSON)' : 'Failed to import: Invalid format';
+  String get importSuccess =>
+      isZh ? '成功导入 Booru 站点！' : 'Successfully imported Booru site!';
+  String get importFailed => isZh
+      ? '导入失败：格式非法 (需为 booru:// 或 JSON)'
+      : 'Failed to import: Invalid format';
 
   // Booru Edit
   String get editBooruTitle => isZh ? '编辑 Booru 站点' : 'Edit Booru Site';
@@ -114,11 +135,14 @@ class AppLocalizations {
   String get booruName => isZh ? 'Booru 名称 *' : 'Booru Name *';
   String get hostDomain => isZh ? '域名 / 主机地址 *' : 'Host / Domain *';
   String get booruEngineType => isZh ? 'Booru 引擎类型' : 'Booru Engine Type';
-  String get apiPathShimmie => isZh ? 'API 相对路径 (Shimmie 可选)' : 'API Path (Optional for Shimmie)';
+  String get apiPathShimmie =>
+      isZh ? 'API 相对路径 (Shimmie 可选)' : 'API Path (Optional for Shimmie)';
   String get hashSalt => isZh ? '密码 Hash Salt' : 'Password Hash Salt';
-  String get authOptional => isZh ? '用户账号认证 (可选)' : 'Authentication / User Account (Optional)';
+  String get authOptional =>
+      isZh ? '用户账号认证 (可选)' : 'Authentication / User Account (Optional)';
   String get usernameOrId => isZh ? '用户名 / 用户 ID' : 'Username / User ID';
-  String get tokenOrPassword => isZh ? 'API Key / Token / 密码' : 'API Key / Token / Password Hash';
+  String get tokenOrPassword =>
+      isZh ? 'API Key / Token / 密码' : 'API Key / Token / Password Hash';
   String get saveChanges => isZh ? '保存修改' : 'Save Changes';
 
   // Blacklist
@@ -132,7 +156,8 @@ class AppLocalizations {
   String get noBlacklistTags => isZh ? '暂无黑名单标签' : 'No blacklisted tags yet.';
 
   // Favorites
-  String favoritesCount(int count) => isZh ? '本地收藏 ($count)' : 'Favorites ($count)';
+  String favoritesCount(int count) =>
+      isZh ? '本地收藏 ($count)' : 'Favorites ($count)';
   String get noFavoritesYet => isZh ? '暂无收藏内容' : 'No saved favorites yet';
 
   // Pools
@@ -151,7 +176,8 @@ class AppLocalizations {
   String get themeLight => isZh ? '浅色' : 'Light';
   String get themeDark => isZh ? '深色' : 'Dark';
   String get amoledBlack => isZh ? 'AMOLED 纯黑' : 'AMOLED Pure Black';
-  String get amoledBlackSub => isZh ? '为 OLED 屏幕提供纯黑省电背景' : 'Pitch black background for OLED screens';
+  String get amoledBlackSub =>
+      isZh ? '为 OLED 屏幕提供纯黑省电背景' : 'Pitch black background for OLED screens';
   String get accentColor => isZh ? '主题强调色' : 'Accent Color';
   String get chooseAccentColor => isZh ? '选择主题强调色' : 'Choose Accent Color';
   String get layoutDisplay => isZh ? '布局与画质' : 'Layout & Display';
@@ -164,19 +190,27 @@ class AppLocalizations {
   String get qualityOriginal => isZh ? '原始大图 (最高画质)' : 'Original (Highest)';
   String get contentSafety => isZh ? '内容安全' : 'Content Safety';
   String get defaultSafeMode => isZh ? '默认开启安全模式' : 'Default Safe Mode';
-  String get defaultSafeModeSub =>
-      isZh ? '默认过滤可能含有非全年龄/可疑分级的作品' : 'Filter explicit & questionable posts by default';
+  String get defaultSafeModeSub => isZh
+      ? '默认过滤可能含有非全年龄/可疑分级的作品'
+      : 'Filter explicit & questionable posts by default';
   String get networkAntiWaf => isZh ? '网络与防拦截' : 'Network & Anti-WAF';
-  String get customUserAgent => isZh ? '自定义浏览器 User-Agent' : 'Custom User-Agent';
-  String get userAgentHint => isZh ? '修改 User-Agent 有助于突破 Cloudflare 拦截' : 'Helps bypass Cloudflare & bot challenges';
+  String get customUserAgent =>
+      isZh ? '自定义浏览器 User-Agent' : 'Custom User-Agent';
+  String get userAgentHint => isZh
+      ? 'API 默认使用 Flexbooru 标识；浏览器 UA 可能触发人机验证'
+      : 'APIs use the Flexbooru identity by default; browser UAs may trigger challenges';
   String get resetDefault => isZh ? '恢复默认' : 'Reset Default';
 
   // About
   String get aboutAppSub => isZh
       ? '基于 Flutter 重构的跨平台 Booru 现代图版客户端，全引擎支持与全面 Bug 修复。'
       : 'A modern, multi-platform Booru client rewritten in Flutter with full engine compatibility and bug fixes.';
-  String get bugFixesAndUpgrades => isZh ? 'Bug 修复与现代升级' : 'Bug Fixes & Modern Upgrades';
-  String get originalProject => isZh ? '原版 Flexbooru 开源项目' : 'Original Flexbooru Project';
+  String get bugFixesAndUpgrades =>
+      isZh ? 'Bug 修复与现代升级' : 'Bug Fixes & Modern Upgrades';
+  String get originalProject =>
+      isZh ? '原版 Flexbooru 开源项目' : 'Original Flexbooru Project';
+  String get currentProject =>
+      isZh ? '本项目：Flexbooru Flutter' : 'This project: Flexbooru Flutter';
   String get license => isZh ? '开源授权' : 'License';
 }
 

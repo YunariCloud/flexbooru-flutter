@@ -19,7 +19,9 @@ class FavoritesProvider extends ChangeNotifier {
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
         final List<dynamic> list = jsonDecode(jsonStr);
-        _favorites = list.map((e) => Post.fromJson(e as Map<String, dynamic>)).toList();
+        _favorites = list
+            .map((e) => Post.fromJson(e as Map<String, dynamic>))
+            .toList();
       } catch (_) {
         _favorites = [];
       }
@@ -27,12 +29,14 @@ class FavoritesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isFavorite(int postId, String booruId) {
+  bool isFavorite(Object postId, String booruId) {
     return _favorites.any((p) => p.id == postId && p.booruId == booruId);
   }
 
   Future<void> toggleFavorite(Post post) async {
-    final index = _favorites.indexWhere((p) => p.id == post.id && p.booruId == post.booruId);
+    final index = _favorites.indexWhere(
+      (p) => p.id == post.id && p.booruId == post.booruId,
+    );
     if (index != -1) {
       _favorites.removeAt(index);
       post.isFavored = false;
@@ -41,7 +45,10 @@ class FavoritesProvider extends ChangeNotifier {
       _favorites.insert(0, post);
     }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyFavorites, jsonEncode(_favorites.map((p) => p.toJson()).toList()));
+    await prefs.setString(
+      _keyFavorites,
+      jsonEncode(_favorites.map((p) => p.toJson()).toList()),
+    );
     notifyListeners();
   }
 }

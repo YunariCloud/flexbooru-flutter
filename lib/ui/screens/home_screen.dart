@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/network/booru_api_exception.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../models/booru_site.dart';
 import '../../providers/blacklist_provider.dart';
@@ -10,6 +13,7 @@ import '../../providers/settings_provider.dart';
 import '../widgets/post_grid_item.dart';
 import 'about_screen.dart';
 import 'booru_manage_screen.dart';
+import 'booru_edit_screen.dart';
 import 'favorites_screen.dart';
 import 'pools_screen.dart';
 import 'search_screen.dart';
@@ -45,10 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onScroll() {
     if (_isPopular) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 400) {
       final booruProv = context.read<BooruProvider>();
       final postsProv = context.read<PostsProvider>();
-      if (booruProv.activeSite != null && !postsProv.isLoadingMore && postsProv.hasMore) {
+      if (booruProv.activeSite != null &&
+          !postsProv.isLoadingMore &&
+          postsProv.hasMore) {
         postsProv.fetchPosts(site: booruProv.activeSite!);
       }
     }
@@ -113,7 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => _showSitePicker(context, booruProv, l10n),
                 borderRadius: BorderRadius.circular(20),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -121,7 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           activeSite.name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -190,18 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const PopupMenuDivider(),
-              PopupMenuItem(
-                value: '1d',
-                child: Text(l10n.popularToday),
-              ),
-              PopupMenuItem(
-                value: '1w',
-                child: Text(l10n.popularWeek),
-              ),
-              PopupMenuItem(
-                value: '1m',
-                child: Text(l10n.popularMonth),
-              ),
+              PopupMenuItem(value: '1d', child: Text(l10n.popularToday)),
+              PopupMenuItem(value: '1w', child: Text(l10n.popularWeek)),
+              PopupMenuItem(value: '1m', child: Text(l10n.popularMonth)),
             ],
           ),
         ],
@@ -228,7 +232,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBody(PostsProvider postsProv, BooruSite site, int columns, AppLocalizations l10n) {
+  Widget _buildBody(
+    PostsProvider postsProv,
+    BooruSite site,
+    int columns,
+    AppLocalizations l10n,
+  ) {
     if (postsProv.isLoading && postsProv.posts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -240,15 +249,21 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+              const Icon(
+                Icons.error_outline,
+                size: 56,
+                color: Colors.redAccent,
+              ),
               const SizedBox(height: 16),
               Text(
                 l10n.failedToLoad,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                postsProv.errorMessage!,
+                l10n.networkError(postsProv.failure!),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
@@ -257,6 +272,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: _onRefresh,
                 icon: const Icon(Icons.refresh),
                 label: Text(l10n.retry),
+              ),
+              if (postsProv.failure?.kind == BooruApiError.authentication)
+                TextButton(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BooruEditScreen(existingSite: site),
+                      ),
+                    );
+                    if (mounted) _onRefresh();
+                  },
+                  child: Text(l10n.configureCredentials),
+                ),
+              if (postsProv.failure?.kind == BooruApiError.challenge)
+                TextButton(
+                  onPressed: () async {
+                    await context.read<SettingsProvider>().setUserAgent(
+                      AppConstants.defaultUserAgent,
+                    );
+                    if (mounted) _onRefresh();
+                  },
+                  child: Text(l10n.resetDefault),
+                ),
+              TextButton(
+                onPressed: () => launchUrl(
+                  Uri.parse(site.websiteUrl),
+                  mode: LaunchMode.externalApplication,
+                ),
+                child: Text(l10n.openSiteInBrowser),
               ),
             ],
           ),
@@ -269,9 +313,21 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.image_not_supported_outlined, size: 56, color: Colors.grey),
+            const Icon(
+              Icons.image_not_supported_outlined,
+              size: 56,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 12),
-            Text(l10n.noPostsFound, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+            Text(
+              l10n.noPostsFound,
+              style: const TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            if (postsProv.safeMode)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(l10n.noSafePostsHint, textAlign: TextAlign.center),
+              ),
             const SizedBox(height: 16),
             OutlinedButton(onPressed: _onRefresh, child: Text(l10n.refresh)),
           ],
@@ -305,7 +361,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, BooruSite? activeSite, AppLocalizations l10n) {
+  Widget _buildDrawer(
+    BuildContext context,
+    BooruSite? activeSite,
+    AppLocalizations l10n,
+  ) {
     final theme = Theme.of(context);
     final booruProv = context.watch<BooruProvider>();
 
@@ -331,9 +391,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 Text(
-                  activeSite != null ? '${activeSite.name} (${activeSite.typeName})' : l10n.selectBooru,
+                  activeSite != null
+                      ? '${activeSite.name} (${activeSite.typeName})'
+                      : l10n.selectBooru,
                   style: TextStyle(
-                    color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    color: theme.colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.8,
+                    ),
                     fontSize: 13,
                   ),
                 ),
@@ -381,7 +445,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               if (activeSite != null) {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => PoolsScreen(site: activeSite)),
+                  MaterialPageRoute(
+                    builder: (_) => PoolsScreen(site: activeSite),
+                  ),
                 );
               }
             },
@@ -414,9 +480,9 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Text(l10n.settings),
             onTap: () {
               Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
           ),
           ListTile(
@@ -424,9 +490,9 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Text(l10n.about),
             onTap: () {
               Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AboutScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const AboutScreen()));
             },
           ),
         ],
@@ -434,7 +500,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showSitePicker(BuildContext context, BooruProvider booruProv, AppLocalizations l10n) {
+  void _showSitePicker(
+    BuildContext context,
+    BooruProvider booruProv,
+    AppLocalizations l10n,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -450,14 +520,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(l10n.switchBooruSite, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      l10n.switchBooruSite,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     TextButton.icon(
                       icon: const Icon(Icons.settings, size: 18),
                       label: Text(l10n.manageBoorus),
                       onPressed: () {
                         Navigator.pop(ctx);
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const BooruManageScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const BooruManageScreen(),
+                          ),
                         );
                       },
                     ),
@@ -473,12 +551,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     final isSelected = site.id == booruProv.activeSite?.id;
                     return ListTile(
                       leading: Icon(
-                        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                        isSelected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
-                      title: Text(site.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      title: Text(
+                        site.name,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
                       subtitle: Text('${site.host} (${site.typeName})'),
-                      trailing: isSelected ? Chip(label: Text(l10n.activeSite, style: const TextStyle(fontSize: 11))) : null,
+                      trailing: isSelected
+                          ? Chip(
+                              label: Text(
+                                l10n.activeSite,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            )
+                          : null,
                       onTap: () {
                         booruProv.setActiveSite(site);
                         Navigator.pop(ctx);

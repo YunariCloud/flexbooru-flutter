@@ -3,6 +3,7 @@ import '../models/booru_site.dart';
 import '../models/comment.dart';
 import '../models/pool.dart';
 import '../models/post.dart';
+import '../models/post_page.dart';
 import '../models/tag.dart';
 import 'danbooru_service.dart';
 import 'gelbooru_service.dart';
@@ -20,6 +21,34 @@ class BooruService {
   final _gelbooru = GelbooruService();
   final _sankaku = SankakuService();
   final _shimmie = ShimmieService();
+
+  Future<PostPage> getPostPage({
+    required BooruSite site,
+    required int page,
+    required int limit,
+    String query = '',
+    bool safeMode = false,
+    String? nextCursor,
+  }) async {
+    if (site.type == BooruType.sankaku) {
+      return _sankaku.getPostPage(
+        site: site,
+        page: page,
+        limit: limit,
+        query: query,
+        safeMode: safeMode,
+        nextKey: nextCursor,
+      );
+    }
+    final posts = await getPosts(
+      site: site,
+      page: page,
+      limit: limit,
+      query: query,
+      safeMode: safeMode,
+    );
+    return PostPage(posts: posts, hasMore: posts.isNotEmpty);
+  }
 
   Future<List<Post>> getPosts({
     required BooruSite site,
@@ -101,17 +130,19 @@ class BooruService {
 
   Future<List<Comment>> getComments({
     required BooruSite site,
-    required int postId,
+    required Object postId,
   }) async {
+    final numericId = int.tryParse(postId.toString());
+    if (numericId == null) return [];
     switch (site.type) {
       case BooruType.danbooru:
       case BooruType.danbooru1:
-        return _danbooru.getComments(site: site, postId: postId);
+        return _danbooru.getComments(site: site, postId: numericId);
       case BooruType.moebooru:
-        return _moebooru.getComments(site: site, postId: postId);
+        return _moebooru.getComments(site: site, postId: numericId);
       case BooruType.gelbooru:
       case BooruType.gelbooruLegacy:
-        return _gelbooru.getComments(site: site, postId: postId);
+        return _gelbooru.getComments(site: site, postId: numericId);
       default:
         return [];
     }
@@ -135,6 +166,7 @@ class BooruService {
   Future<List<Post>> getPopular({
     required BooruSite site,
     String scale = '1d',
+    bool safeMode = false,
   }) async {
     if (site.type == BooruType.moebooru) {
       return _moebooru.getPopularPosts(site: site, scale: scale);
@@ -144,6 +176,7 @@ class BooruService {
       site: site,
       page: 1,
       limit: 20,
+      safeMode: safeMode,
       query: site.type == BooruType.danbooru ? 'order:score' : 'order:score',
     );
   }
