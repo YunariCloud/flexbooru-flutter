@@ -4,6 +4,7 @@
 [![Dart](https://img.shields.io/badge/Dart-3.10%2B-0175C2.svg)](https://dart.dev)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20%7C%20iOS%20%7C%20macOS%20%7C%20Linux-green.svg)]()
+[![Build and Release](https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml/badge.svg)](https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml)
 
 基于原生 Android Kotlin 项目 [flexbooru/flexbooru](https://github.com/flexbooru/flexbooru) 重写的 Flutter Booru 客户端，由 YunariCloud 在独立仓库维护。
 
@@ -115,3 +116,44 @@ flutter build apk --release
 flutter build windows --release
 ```
 编译产物位于 `build/windows/x64/runner/Release/` 或 `build/app/outputs/flutter-apk/app-release.apk`。
+
+## GitHub Actions 自动打包与发布
+
+工作流：[Build and Release](https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml)，配置见 [.github/workflows/build-release.yml](.github/workflows/build-release.yml)。固定使用 Flutter 3.38.5 / Java 17，先运行静态检查和测试，随后构建 Android 与 Windows。
+
+| 触发方式 | 行为 |
+| --- | --- |
+| 推送到 `master` / `main` 或提交 PR | 自动检查、打包 APK、AAB 和 Windows ZIP；产物保存在该次 Actions 的 Artifacts 中，保留 14 天；不创建 Release |
+| 推送 `v1.0.1` 等 `v*` 标签 | 两个平台构建成功后，自动创建或更新同名 GitHub Release 并上传产物及 SHA-256 校验文件 |
+| Actions → Build and Release → Run workflow | 默认仅构建；勾选 `publish` 并填写 `tag` 可以发布。已有标签必须对应当前选择的提交 |
+
+例如发布新版本：
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+`v1.1.0-rc.1` / `v1.1.0-beta.1` 自动标记为预发布，普通 `vX.Y.Z` 标记为正式版。标签决定应用版本，构建号由 `pubspec.yaml` 的基础构建号加 Actions 运行序号生成；应用关于页也显示该构建版本。
+
+发布产物包括：
+
+- `flexbooru-flutter-<版本>-android-universal.apk`：可直接安装的 Android 通用 APK。
+- `flexbooru-flutter-<版本>-android.aab`：Android App Bundle；本工作流不提交 Google Play。
+- `flexbooru-flutter-<版本>-windows-x64.zip`：包含 EXE、全部 DLL、`data` 目录、README 和许可证。解压完整目录后运行 `flexbooru.exe`；系统需要 Microsoft Visual C++ 2015–2022 x64 运行库。
+- `android-SHA256SUMS.txt` / `windows-SHA256SUMS.txt` 和 GPL-3.0 许可证。
+
+### Android 发布签名
+
+在仓库 Settings → Secrets and variables → Actions 配置以下四个 Repository Secrets；本仓库首次配置时已生成并上传固定签名密钥：
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | JKS 文件的 Base64 编码 |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore 密码 |
+| `ANDROID_KEY_PASSWORD` | 签名密钥密码 |
+| `ANDROID_KEY_ALIAS` | 密钥别名 |
+
+本地对应 `android/app/release.jks` 和 `android/key.properties`，均已被 `.gitignore` 排除。请备份这两个文件，后续版本沿用同一密钥。以前用调试证书安装的版本，需要卸载后安装首次发布签名版本；之后可以正常覆盖升级。
+
+没有签名 Secrets 的 PR 或普通 CI 构建使用调试证书，供测试下载；正式发布缺少签名时直接失败，避免发布无法连续升级的包。Release 使用仓库自动提供的 `GITHUB_TOKEN`，无需额外配置个人访问令牌；只有发布任务获得 `contents: write` 权限。

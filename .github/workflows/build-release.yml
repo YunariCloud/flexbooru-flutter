@@ -1,0 +1,236 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub Release after both builds succeed
+        type: boolean
+        default: false
+      tag:
+        description: Release tag, e.g. v1.0.1 or v1.1.0-rc.1 (required when publishing)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FLUTTER_VERSION: '3.38.5'
+
+jobs:
+  validate:
+    name: Analyze and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      build_number: ${{ steps.metadata.outputs.build_number }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      label: ${{ steps.metadata.outputs.label }}
+      publish: ${{ steps.metadata.outputs.publish }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release metadata
+        id: metadata
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+        run: python3 .github/scripts/release_metadata.py
+      - name: Test release metadata
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub
+
+  android:
+    name: Android APK and App Bundle
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      APP_VERSION: ${{ needs.validate.outputs.version }}
+      BUILD_NUMBER: ${{ needs.validate.outputs.build_number }}
+      ARTIFACT_LABEL: ${{ needs.validate.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle.kts
+            android/gradle/wrapper/gradle-wrapper.properties
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Configure release signing
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PUBLISH: ${{ needs.validate.outputs.publish }}
+        run: |
+          if [[ -n "$KEYSTORE_BASE64" ]]; then
+            for variable in STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+              if [[ -z "${!variable}" ]]; then
+                echo "::error::Missing Android signing secret: $variable"
+                exit 1
+              fi
+            done
+            umask 077
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+            printf '%s\n' "storeFile=release.jks" "storePassword=$STORE_PASSWORD" \
+              "keyPassword=$KEY_PASSWORD" "keyAlias=$KEY_ALIAS" > android/key.properties
+          elif [[ "$PUBLISH" == 'true' ]]; then
+            echo '::error::Publishing requires the four Android signing secrets documented in README.md.'
+            exit 1
+          else
+            echo 'No signing secrets: this CI build uses a debug certificate and will not be published.'
+          fi
+      - name: Build universal APK
+        run: flutter build apk --release --build-name="$APP_VERSION" --build-number="$BUILD_NUMBER" --dart-define="APP_VERSION=$APP_VERSION"
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release --build-name="$APP_VERSION" --build-number="$BUILD_NUMBER" --dart-define="APP_VERSION=$APP_VERSION"
+      - name: Package Android artifacts
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/flexbooru-flutter-$ARTIFACT_LABEL-android-universal.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/flexbooru-flutter-$ARTIFACT_LABEL-android.aab"
+          cp LICENSE dist/LICENSE
+          (cd dist && sha256sum ./*.apk ./*.aab > android-SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-android
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove signing material from the runner
+        if: always()
+        run: rm -f android/key.properties android/app/release.jks
+
+  windows:
+    name: Windows x64 portable ZIP
+    needs: validate
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      APP_VERSION: ${{ needs.validate.outputs.version }}
+      BUILD_NUMBER: ${{ needs.validate.outputs.build_number }}
+      ARTIFACT_LABEL: ${{ needs.validate.outputs.label }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Build Windows
+        run: flutter build windows --release --build-name="$env:APP_VERSION" --build-number="$env:BUILD_NUMBER" --dart-define="APP_VERSION=$env:APP_VERSION"
+      - name: Package complete Windows runtime
+        run: |
+          $runtime = 'build/windows/x64/runner/Release'
+          if (-not (Test-Path "$runtime/flexbooru.exe")) { throw 'Windows executable is missing' }
+          Copy-Item -LiteralPath LICENSE -Destination "$runtime/LICENSE"
+          Copy-Item -LiteralPath README.md -Destination "$runtime/README.md"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $archive = "flexbooru-flutter-$env:ARTIFACT_LABEL-windows-x64.zip"
+          Compress-Archive -Path "$runtime/*" -DestinationPath "dist/$archive"
+          $hash = (Get-FileHash -LiteralPath "dist/$archive" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $archive" | Set-Content -LiteralPath dist/windows-SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: [validate, android, windows]
+    if: needs.validate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - name: Create release notes
+        run: |
+          cat > release-notes.md <<'NOTES'
+          自动构建产物 / Automated builds:
+          - Android universal APK：直接安装，覆盖 arm64、armv7 和 x86_64。
+          - Android App Bundle：用于后续应用商店分发，本工作流不上传商店。
+          - Windows x64 ZIP：解压完整目录后运行 flexbooru.exe；保留 DLL 和 data 目录。
+          - SHA256SUMS 文件：用于校验下载文件。
+
+          本项目 / This project: https://github.com/YunariCloud/flexbooru-flutter
+          原项目 / Upstream: https://github.com/flexbooru/flexbooru
+          许可证 / License: GPL-3.0
+          NOTES
+      - name: Publish only after both platforms succeed
+        run: |
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            tagged_commit=$(git rev-list -n 1 "$RELEASE_TAG")
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo '::error::The release tag points to another commit.'
+              exit 1
+            fi
+          fi
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" \
+              --title "Flexbooru Flutter $RELEASE_TAG" --draft \
+              --prerelease="$PRERELEASE" --generate-notes --notes-file release-notes.md
+          fi
+          if [[ "$PRERELEASE" == 'true' ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
+          fi

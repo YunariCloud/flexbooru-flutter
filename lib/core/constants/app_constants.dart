@@ -66,7 +66,8 @@ class TagCategory {
 
 class AppConstants {
   static const String appName = 'Flexbooru';
-  static const String appVersion = '2.0.0 (Flutter Edition)';
+  static const String appVersion =
+      '${String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0')} (Flutter Edition)';
 
   static const String defaultUserAgent =
       'Flexbooru/2.0 (Flutter; Booru client)';
