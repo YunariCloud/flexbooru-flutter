@@ -40,6 +40,9 @@ class PostsProvider extends ChangeNotifier {
     _blacklist = list;
   }
 
+  int _popularPage = 1;
+  String _currentPopularScale = '1d';
+
   Future<void> fetchPosts({
     required BooruSite site,
     String query = '',
@@ -59,6 +62,7 @@ class PostsProvider extends ChangeNotifier {
     } else {
       if (_isLoading || _isLoadingMore || !_hasMore) return;
       _isLoadingMore = true;
+      _failure = null;
       notifyListeners();
     }
 
@@ -112,6 +116,11 @@ class PostsProvider extends ChangeNotifier {
         _currentPage++;
       }
       _failure = null;
+
+      // If initial fetch left too few items to fill viewport, auto-fetch more
+      if (refresh && _posts.length < 12 && _hasMore) {
+        _autoFetchMorePosts(site: site, generation: generation);
+      }
     } catch (e) {
       if (generation != _requestGeneration) return;
       _failure = BooruApiException.from(e);
@@ -127,30 +136,138 @@ class PostsProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _autoFetchMorePosts({
+    required BooruSite site,
+    required int generation,
+    int maxAttempts = 3,
+  }) async {
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      if (generation != _requestGeneration || !_hasMore || _posts.length >= 12) break;
+      try {
+        final result = await _booruService.getPostPage(
+          site: site,
+          page: _currentPage,
+          limit: 20,
+          query: _currentQuery,
+          safeMode: _safeMode,
+          nextCursor: _nextCursor,
+        );
+        if (generation != _requestGeneration) return;
+        final fetched = result.posts;
+        if (fetched.isEmpty) {
+          _hasMore = false;
+          notifyListeners();
+          break;
+        }
+
+        final activeBlacklist = [
+          ..._blacklist,
+          ...site.blacklists,
+        ].map((t) => t.trim().toLowerCase()).where((t) => t.isNotEmpty).toSet();
+
+        final filtered = fetched.where((post) {
+          if (_safeMode && !post.isSafe) return false;
+          if (activeBlacklist.isNotEmpty) {
+            final postTags = post.tags.map((t) => t.name.toLowerCase()).toSet();
+            for (final b in activeBlacklist) {
+              if (postTags.contains(b)) return false;
+            }
+          }
+          return true;
+        }).toList();
+
+        final existingIds = _posts.map((p) => p.id).toSet();
+        for (final p in filtered) {
+          if (!existingIds.contains(p.id)) {
+            _posts.add(p);
+            existingIds.add(p.id);
+          }
+        }
+
+        _hasMore = result.hasMore;
+        _nextCursor = result.nextCursor;
+        if (_hasMore) {
+          _currentPage++;
+        }
+        notifyListeners();
+      } catch (_) {
+        break;
+      }
+    }
+  }
+
   Future<void> fetchPopular({
     required BooruSite site,
     String scale = '1d',
+    bool refresh = false,
   }) async {
-    final generation = ++_requestGeneration;
-    _nextCursor = null;
-    _isLoading = true;
-    _isLoadingMore = false;
-    _failure = null;
-    _posts = [];
-    _hasMore = false;
-    notifyListeners();
+    if (refresh) {
+      _requestGeneration++;
+      _popularPage = 1;
+      _currentPopularScale = scale;
+      _hasMore = true;
+      _failure = null;
+      _isLoading = true;
+      _isLoadingMore = false;
+      _posts = [];
+      notifyListeners();
+    } else {
+      if (_isLoading || _isLoadingMore || !_hasMore) return;
+      _isLoadingMore = true;
+      _failure = null;
+      notifyListeners();
+    }
+
+    final generation = _requestGeneration;
 
     try {
       final fetched = await _booruService.getPopular(
         site: site,
-        scale: scale,
+        scale: _currentPopularScale,
+        page: _popularPage,
         safeMode: _safeMode,
       );
       if (generation != _requestGeneration) return;
-      _posts = fetched.where((post) => !_safeMode || post.isSafe).toList();
+
+      final activeBlacklist = [
+        ..._blacklist,
+        ...site.blacklists,
+      ].map((t) => t.trim().toLowerCase()).where((t) => t.isNotEmpty).toSet();
+
+      final filtered = fetched.where((post) {
+        if (_safeMode && !post.isSafe) return false;
+        if (activeBlacklist.isNotEmpty) {
+          final postTags = post.tags.map((t) => t.name.toLowerCase()).toSet();
+          for (final b in activeBlacklist) {
+            if (postTags.contains(b)) return false;
+          }
+        }
+        return true;
+      }).toList();
+
+      if (refresh) {
+        _posts = filtered;
+      } else {
+        final existingIds = _posts.map((p) => p.id).toSet();
+        for (final p in filtered) {
+          if (!existingIds.contains(p.id)) {
+            _posts.add(p);
+            existingIds.add(p.id);
+          }
+        }
+      }
+
+      _hasMore = fetched.isNotEmpty;
+      if (_hasMore) {
+        _popularPage++;
+      }
+      _failure = null;
     } catch (e) {
       if (generation != _requestGeneration) return;
       _failure = BooruApiException.from(e);
+      if (refresh) {
+        _posts = [];
+      }
     } finally {
       if (generation == _requestGeneration) {
         _isLoading = false;

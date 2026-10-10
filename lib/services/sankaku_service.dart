@@ -63,7 +63,7 @@ class SankakuService {
     if (nextKey != null && nextKey.isNotEmpty) {
       queryParams['next'] = nextKey;
     } else if (page > 1) {
-      throw const BooruApiException(BooruApiError.query);
+      return const PostPage(posts: [], hasMore: false);
     }
 
     final headers = <String, dynamic>{
@@ -104,7 +104,8 @@ class SankakuService {
       throw BooruApiException(BooruApiError.invalidResponse, host: site.host);
     }
     final meta = data is Map ? data['meta'] : null;
-    final next = meta is Map ? meta['next']?.toString() : null;
+    final next = (meta is Map ? meta['next']?.toString() : null) ??
+        (data is Map ? data['next']?.toString() : null);
     return PostPage(
       posts: posts,
       nextCursor: next,

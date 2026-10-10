@@ -8,6 +8,7 @@ import 'package:flexbooru/core/network/booru_api_exception.dart';
 import 'package:flexbooru/models/booru_site.dart';
 import 'package:flexbooru/models/post.dart';
 import 'package:flexbooru/providers/settings_provider.dart';
+import 'package:flexbooru/services/danbooru_service.dart';
 import 'package:flexbooru/services/gelbooru_service.dart';
 import 'package:flexbooru/services/sankaku_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -358,4 +359,123 @@ void main() {
       BooruApiError.timeout,
     );
   });
+
+  test('Danbooru database timeout 500 produces user-friendly error message', () {
+    final dioError = DioException(
+      requestOptions: RequestOptions(
+        path: 'https://danbooru.donmai.us/posts.json',
+      ),
+      response: Response(
+        requestOptions: RequestOptions(
+          path: 'https://danbooru.donmai.us/posts.json',
+        ),
+        statusCode: 500,
+        data:
+            '{"success":false,"error":"ActiveRecord::QueryCanceled","message":"The database timed out running your query."}',
+      ),
+    );
+    final exception = BooruApiException.from(dioError);
+    expect(exception.kind, equals(BooruApiError.server));
+    expect(exception.statusCode, equals(500));
+    expect(exception.describe(chinese: true), contains('Danbooru 数据库查询超时'));
+    expect(
+      exception.describe(chinese: false),
+      contains('Danbooru database query timed out'),
+    );
+  });
+
+  test('DanbooruService maps timeout order tags to order:rank', () async {
+    String? requestedTags;
+    final service = DanbooruService(
+      dio: _dio((options) {
+        requestedTags = options.queryParameters['tags']?.toString();
+        return _json([
+          {
+            'id': 1,
+            'image_width': 100,
+            'image_height': 100,
+            'file_url': 'https://cdn.donmai.us/1.jpg',
+            'tag_string': 'solo',
+          }
+        ]);
+      }),
+    );
+
+    final site = _site('danbooru.donmai.us', BooruType.danbooru);
+    await service.getPosts(site: site, page: 1, limit: 10, query: 'cat order:score');
+    expect(requestedTags, equals('cat order:rank'));
+
+    await service.getPosts(site: site, page: 1, limit: 10, query: 'order:favcount');
+    expect(requestedTags, equals('order:rank'));
+  });
+
+  test('DanbooruService getPopularPosts calls explore endpoint', () async {
+    String? requestedPath;
+    String? requestedScale;
+    final service = DanbooruService(
+      dio: _dio((options) {
+        requestedPath = options.path;
+        requestedScale = options.queryParameters['scale']?.toString();
+        return _json([
+          {
+            'id': 10,
+            'image_width': 100,
+            'image_height': 100,
+            'file_url': 'https://cdn.donmai.us/10.jpg',
+            'tag_string': 'solo',
+          }
+        ]);
+      }),
+    );
+
+    final site = _site('danbooru.donmai.us', BooruType.danbooru);
+    final posts = await service.getPopularPosts(site: site, scale: '1w');
+    expect(posts.length, equals(1));
+    expect(
+      requestedPath,
+      equals('https://danbooru.donmai.us/explore/posts/popular.json'),
+    );
+    expect(requestedScale, equals('week'));
+  });
+
+  test('DanbooruService getPopularPosts forwards page parameter', () async {
+    int? requestedPage;
+    final service = DanbooruService(
+      dio: _dio((options) {
+        requestedPage = options.queryParameters['page'] as int?;
+        return _json([]);
+      }),
+    );
+
+    final site = _site('danbooru.donmai.us', BooruType.danbooru);
+    await service.getPopularPosts(site: site, scale: '1d', page: 3);
+    expect(requestedPage, equals(3));
+  });
+
+  test('DanbooruService getPosts reports error JSON maps as BooruApiException', () async {
+    final service = DanbooruService(
+      dio: _dio((_) => _json({
+        'success': false,
+        'message': 'You cannot search for more than 2 tags.',
+      })),
+    );
+
+    final site = _site('danbooru.donmai.us', BooruType.danbooru);
+    expect(
+      () => service.getPosts(site: site, page: 1, limit: 20),
+      throwsA(isA<BooruApiException>()),
+    );
+  });
+
+  test('SankakuService gracefully returns empty page when page > 1 without nextKey', () async {
+    final service = SankakuService(
+      dio: _dio((_) => throw StateError('must not call network')),
+    );
+
+    final site = _site('sankakuapi.com', BooruType.sankaku);
+    final page = await service.getPostPage(site: site, page: 2, limit: 20, nextKey: null);
+    expect(page.posts, isEmpty);
+    expect(page.hasMore, false);
+  });
 }
+

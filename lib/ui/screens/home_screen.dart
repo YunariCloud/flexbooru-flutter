@@ -53,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onScroll() {
-    if (_isPopular) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 400) {
       final booruProv = context.read<BooruProvider>();
@@ -61,7 +60,15 @@ class _HomeScreenState extends State<HomeScreen> {
       if (booruProv.activeSite != null &&
           !postsProv.isLoadingMore &&
           postsProv.hasMore) {
-        postsProv.fetchPosts(site: booruProv.activeSite!);
+        if (_isPopular) {
+          postsProv.fetchPopular(
+            site: booruProv.activeSite!,
+            scale: _popularScale,
+            refresh: false,
+          );
+        } else {
+          postsProv.fetchPosts(site: booruProv.activeSite!);
+        }
       }
     }
   }
@@ -116,7 +123,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (booruProv.activeSite == null) return;
 
     if (_isPopular) {
-      postsProv.fetchPopular(site: booruProv.activeSite!, scale: _popularScale);
+      postsProv.fetchPopular(
+        site: booruProv.activeSite!,
+        scale: _popularScale,
+        refresh: true,
+      );
     } else {
       postsProv.fetchPosts(site: booruProv.activeSite!, refresh: true);
     }
@@ -229,13 +240,16 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             tooltip: l10n.search,
             icon: const Icon(Icons.search),
-            onPressed: () {
+            onPressed: () async {
               if (activeSite != null) {
-                Navigator.of(context).push(
+                final searched = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
                     builder: (_) => SearchScreen(site: activeSite),
                   ),
                 );
+                if (searched == true && mounted) {
+                  setState(() => _isPopular = false);
+                }
               }
             },
           ),
@@ -423,25 +437,57 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final showLoadingMore = postsProv.isLoadingMore;
+    final showLoadMoreError =
+        postsProv.failure != null && postsProv.posts.isNotEmpty;
+    final extraItemCount = showLoadingMore || showLoadMoreError ? 1 : 0;
+
     return MasonryGridView.count(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       crossAxisCount: columns,
       mainAxisSpacing: 4,
       crossAxisSpacing: 4,
-      itemCount: postsProv.posts.length + (postsProv.isLoadingMore ? 1 : 0),
+      itemCount: postsProv.posts.length + extraItemCount,
       itemBuilder: (context, index) {
         if (index == postsProv.posts.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+          if (showLoadingMore) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
               ),
-            ),
-          );
+            );
+          }
+          if (showLoadMoreError) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final booruProv = context.read<BooruProvider>();
+                    if (booruProv.activeSite != null) {
+                      if (_isPopular) {
+                        postsProv.fetchPopular(
+                          site: booruProv.activeSite!,
+                          scale: _popularScale,
+                          refresh: false,
+                        );
+                      } else {
+                        postsProv.fetchPosts(site: booruProv.activeSite!);
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(l10n.retry),
+                ),
+              ),
+            );
+          }
         }
         final post = postsProv.posts[index];
         return PostGridItem(post: post, site: site);
@@ -547,14 +593,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ListTile(
             leading: const Icon(Icons.collections_bookmark_outlined),
             title: Text(l10n.pools),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
               if (activeSite != null) {
-                Navigator.of(context).push(
+                final selected = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
                     builder: (_) => PoolsScreen(site: activeSite),
                   ),
                 );
+                if (selected == true && mounted) {
+                  setState(() => _isPopular = false);
+                }
               }
             },
           ),

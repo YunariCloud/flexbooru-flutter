@@ -36,10 +36,7 @@ class ShimmieService {
 
     try {
       final doc = XmlDocument.parse(rawText);
-      final elements = [
-        ...doc.findAllElements('tag'),
-        ...doc.findAllElements('post'),
-      ];
+      final elements = doc.findAllElements('post');
 
       final posts = <Post>[];
       for (final el in elements) {

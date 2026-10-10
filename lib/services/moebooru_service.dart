@@ -181,6 +181,7 @@ class MoebooruService {
   Future<List<Post>> getPopularPosts({
     required BooruSite site,
     String scale = '1d', // 1d, 1w, 1m, 1y
+    int page = 1,
   }) async {
     String endpoint;
     switch (scale) {
@@ -195,7 +196,30 @@ class MoebooruService {
         break;
     }
     final url = '${site.baseUrl}/post/$endpoint';
-    final response = await _dio.get(url);
+    final queryParams = <String, dynamic>{};
+    if (page > 1) {
+      final now = DateTime.now();
+      DateTime targetDate;
+      switch (scale) {
+        case '1w':
+          targetDate = now.subtract(Duration(days: 7 * (page - 1)));
+          break;
+        case '1m':
+          targetDate = DateTime(now.year, now.month - (page - 1), now.day);
+          break;
+        default:
+          targetDate = now.subtract(Duration(days: page - 1));
+          break;
+      }
+      queryParams['year'] = targetDate.year;
+      queryParams['month'] = targetDate.month;
+      queryParams['day'] = targetDate.day;
+    }
+
+    final response = await _dio.get(
+      url,
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
     final dynamic data = jsonDecode(response.data.toString());
     if (data is! List) return [];
     return data

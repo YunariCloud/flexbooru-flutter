@@ -5,6 +5,7 @@ import '../../core/i18n/app_localizations.dart';
 import '../../models/booru_site.dart';
 import '../../providers/booru_provider.dart';
 import '../../providers/posts_provider.dart';
+import '../widgets/booru_credential_guide_dialog.dart';
 import 'booru_edit_screen.dart';
 
 class BooruManageScreen extends StatelessWidget {
@@ -173,6 +174,11 @@ class BooruManageScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(l10n.manageBoorus),
         actions: [
+          IconButton(
+            tooltip: l10n.credentialsGuide,
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => BooruCredentialGuideDialog.show(context),
+          ),
           IconButton(
             tooltip: l10n.exportAllJson,
             icon: const Icon(Icons.share),

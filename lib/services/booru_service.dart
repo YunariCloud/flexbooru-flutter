@@ -166,18 +166,36 @@ class BooruService {
   Future<List<Post>> getPopular({
     required BooruSite site,
     String scale = '1d',
+    int page = 1,
     bool safeMode = false,
   }) async {
     if (site.type == BooruType.moebooru) {
-      return _moebooru.getPopularPosts(site: site, scale: scale);
+      return _moebooru.getPopularPosts(site: site, scale: scale, page: page);
+    }
+    if (site.type == BooruType.danbooru) {
+      return _danbooru.getPopularPosts(
+        site: site,
+        scale: scale,
+        page: page,
+        safeMode: safeMode,
+      );
+    }
+    if (site.type == BooruType.gelbooru || site.type == BooruType.gelbooruLegacy) {
+      return _gelbooru.getPosts(
+        site: site,
+        page: page,
+        limit: 20,
+        safeMode: safeMode,
+        query: 'sort:score:desc',
+      );
     }
     // Default to search with order:score or popular tags
     return getPosts(
       site: site,
-      page: 1,
+      page: page,
       limit: 20,
       safeMode: safeMode,
-      query: site.type == BooruType.danbooru ? 'order:score' : 'order:score',
+      query: 'order:score',
     );
   }
 }

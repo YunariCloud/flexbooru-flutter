@@ -144,6 +144,19 @@ class AppLocalizations {
   String get tokenOrPassword =>
       isZh ? 'API Key / Token / 密码' : 'API Key / Token / Password Hash';
   String get saveChanges => isZh ? '保存修改' : 'Save Changes';
+  String get credentialsGuide => isZh ? '站点登录与凭据指南' : 'Site Credentials Guide';
+  String get viewCredentialsGuide => isZh ? '查看获取教程' : 'Credentials Guide';
+  String get openWebsiteCredentialsPage => isZh ? '前往官网获取' : 'Open Settings Page';
+  String get copyUrl => isZh ? '复制网址' : 'Copy URL';
+  String get close => isZh ? '关闭' : 'Close';
+  String get authRequirement => isZh ? '认证要求' : 'Authentication Requirement';
+  String get howToObtain => isZh ? '获取步骤' : 'Step-by-Step Instructions';
+  String get importantTips => isZh ? '注意事项' : 'Important Tips';
+  String get noAuthNeededBadge => isZh ? '无需登录即可使用' : 'No Auth Needed';
+  String get recommendedBadge => isZh ? '建议配置' : 'Recommended';
+  String get optionalBadge => isZh ? '按需配置 (可选)' : 'Optional';
+  String get currentSiteGuide => isZh ? '当前站点凭据指南' : 'Current Site Credentials Guide';
+  String get selectSiteToViewGuide => isZh ? '切换站点查看说明' : 'Switch site to view guide';
 
   // Blacklist
   String get addTagBlacklist => isZh ? '添加标签到黑名单' : 'Add tag to blacklist';

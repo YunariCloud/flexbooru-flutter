@@ -104,7 +104,7 @@ class _SearchScreenState extends State<SearchScreen> {
     _saveHistory(query);
     final postsProv = context.read<PostsProvider>();
     postsProv.fetchPosts(site: widget.site, query: query, refresh: true);
-    Navigator.pop(context);
+    Navigator.pop(context, true);
   }
 
   @override
@@ -199,6 +199,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 _buildQuickFilterChip('rating:general'),
                 _buildQuickFilterChip('rating:questionable'),
                 _buildQuickFilterChip('rating:explicit'),
+                _buildQuickFilterChip('order:rank'),
                 _buildQuickFilterChip('order:score'),
                 _buildQuickFilterChip('order:favcount'),
               ],

@@ -16,8 +16,16 @@ class BooruApiException implements Exception {
   final BooruApiError kind;
   final String host;
   final int? statusCode;
+  final String? customMessageZh;
+  final String? customMessageEn;
 
-  const BooruApiException(this.kind, {this.host = '', this.statusCode});
+  const BooruApiException(
+    this.kind, {
+    this.host = '',
+    this.statusCode,
+    this.customMessageZh,
+    this.customMessageEn,
+  });
 
   factory BooruApiException.from(Object error) {
     if (error is BooruApiException) return error;
@@ -43,16 +51,32 @@ class BooruApiException implements Exception {
           _ => status == null ? BooruApiError.connection : BooruApiError.server,
         },
       };
+
+      String? customMsgZh;
+      String? customMsgEn;
+      if (status == 500 &&
+          (body.contains('database timed out') ||
+              body.contains('querycanceled') ||
+              body.contains('canceling statement due to statement timeout'))) {
+        customMsgZh = 'Danbooru 数据库查询超时（HTTP 500）。请减少搜索标签数量，或改用 order:rank 排序。';
+        customMsgEn =
+            'Danbooru database query timed out (HTTP 500). Please reduce tags or use order:rank.';
+      }
+
       return BooruApiException(
         kind,
         host: error.requestOptions.uri.host,
         statusCode: status,
+        customMessageZh: customMsgZh,
+        customMessageEn: customMsgEn,
       );
     }
     return const BooruApiException(BooruApiError.invalidResponse);
   }
 
   String describe({bool chinese = true}) {
+    if (chinese && customMessageZh != null) return customMessageZh!;
+    if (!chinese && customMessageEn != null) return customMessageEn!;
     return switch (kind) {
       BooruApiError.authentication =>
         chinese
