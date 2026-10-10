@@ -105,7 +105,7 @@ jobs:
               fi
             done
             umask 077
-            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+            printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > android/app/release.jks
             printf '%s\n' "storeFile=release.jks" "storePassword=$STORE_PASSWORD" \
               "keyPassword=$KEY_PASSWORD" "keyAlias=$KEY_ALIAS" > android/key.properties
           elif [[ "$PUBLISH" == 'true' ]]; then
