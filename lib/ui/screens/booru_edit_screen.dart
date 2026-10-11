@@ -92,7 +92,7 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
         username: _userController.text.trim(),
         token: _tokenController.text.trim(),
       );
-      booruProv.updateSite(updated);
+      booruProv.updateSite(updated, original: widget.existingSite);
     } else {
       final newSite = BooruSite(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -121,7 +121,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final isEditing = widget.existingSite != null;
-    final guide = BooruCredentialGuide.forHostOrType(_hostController.text, _type);
+    final guide = BooruCredentialGuide.forHostOrType(
+      _hostController.text,
+      _type,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -252,7 +255,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                 Expanded(
                   child: Text(
                     l10n.authOptional,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
                 TextButton.icon(
@@ -309,7 +315,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
     );
   }
 
-  Widget _buildCredentialBanner(BuildContext context, BooruCredentialGuide guide) {
+  Widget _buildCredentialBanner(
+    BuildContext context,
+    BooruCredentialGuide guide,
+  ) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final isZh = l10n.isZh;
@@ -319,14 +328,20 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, size: 18, color: theme.colorScheme.primary),
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -354,7 +369,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 0,
+                  ),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
                 icon: const Icon(Icons.menu_book_outlined, size: 14),
@@ -369,7 +387,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                 FilledButton.tonalIcon(
                   style: FilledButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 0,
+                    ),
                     textStyle: const TextStyle(fontSize: 12),
                   ),
                   icon: const Icon(Icons.open_in_new, size: 14),
@@ -377,7 +398,10 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
                   onPressed: () async {
                     final uri = Uri.tryParse(guide.directUrl!);
                     if (uri != null && await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                 ),
@@ -388,7 +412,11 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
     );
   }
 
-  Widget _buildBadge(ThemeData theme, AppLocalizations l10n, BooruCredentialGuide guide) {
+  Widget _buildBadge(
+    ThemeData theme,
+    AppLocalizations l10n,
+    BooruCredentialGuide guide,
+  ) {
     if (guide.isNoAuthNeeded) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -398,7 +426,11 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
         ),
         child: Text(
           l10n.noAuthNeededBadge,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
+          ),
         ),
       );
     }
@@ -411,7 +443,11 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
         ),
         child: Text(
           l10n.recommendedBadge,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.deepOrange),
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.deepOrange,
+          ),
         ),
       );
     }
@@ -423,7 +459,11 @@ class _BooruEditScreenState extends State<BooruEditScreen> {
       ),
       child: Text(
         l10n.optionalBadge,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.primary,
+        ),
       ),
     );
   }

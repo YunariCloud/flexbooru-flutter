@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -7,12 +8,15 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/booru_api_exception.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../core/sync/sync_preferences.dart';
+import '../../core/sync/sync_state.dart';
 import '../../models/booru_site.dart';
 import '../../providers/blacklist_provider.dart';
 import '../../providers/booru_provider.dart';
 import '../../providers/posts_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/update_service.dart';
+import '../../services/app_update_manager.dart';
 import '../widgets/post_grid_item.dart';
 import '../widgets/update_dialog.dart';
 import 'about_screen.dart';
@@ -35,19 +39,26 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isPopular = false;
   String _popularScale = '1d';
+  BlacklistProvider? _blacklistProvider;
+  StreamSubscription<Set<String>>? _syncSubscription;
+  UpdateDownloadState? _updateState;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    AppUpdateManager.instance.addListener(_onUpdateDownloadChanged);
+    _syncSubscription = SyncPreferences.appliedChanges.stream.listen(_onSynced);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initLoad();
-      _checkUpdateQuietly();
+      if (mounted) _initLoad();
     });
   }
 
   @override
   void dispose() {
+    _blacklistProvider?.removeListener(_syncBlacklist);
+    _syncSubscription?.cancel();
+    AppUpdateManager.instance.removeListener(_onUpdateDownloadChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -73,17 +84,59 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _initLoad() {
+  Future<void> _initLoad() async {
     final booruProv = context.read<BooruProvider>();
     final postsProv = context.read<PostsProvider>();
     final settingsProv = context.read<SettingsProvider>();
     final blacklistProv = context.read<BlacklistProvider>();
+
+    await Future.wait([
+      booruProv.ready,
+      settingsProv.ready,
+      blacklistProv.ready,
+    ]);
+    if (!mounted) return;
+    _blacklistProvider = blacklistProv;
+    blacklistProv.addListener(_syncBlacklist);
 
     postsProv.setSafeMode(settingsProv.defaultSafeMode);
     postsProv.setBlacklist(blacklistProv.blacklist);
 
     if (booruProv.activeSite != null) {
       postsProv.fetchPosts(site: booruProv.activeSite!, refresh: true);
+    }
+    _checkUpdateQuietly();
+  }
+
+  void _syncBlacklist() {
+    if (mounted) {
+      context.read<PostsProvider>().setBlacklist(_blacklistProvider!.blacklist);
+    }
+  }
+
+  void _onSynced(Set<String> keys) {
+    if (!mounted) return;
+    final posts = context.read<PostsProvider>();
+    if (keys.contains('flex_safe_mode')) {
+      posts.setSafeMode(context.read<SettingsProvider>().defaultSafeMode);
+    }
+    if (!keys.any(
+      {
+        sitesPreference,
+        'flexbooru_active_site_id',
+        'flex_safe_mode',
+        'flex_user_agent',
+      }.contains,
+    )) {
+      return;
+    }
+    final site = context.read<BooruProvider>().activeSite;
+    if (site == null) {
+      posts.clear();
+    } else if (_isPopular) {
+      posts.fetchPopular(site: site, scale: _popularScale, refresh: true);
+    } else {
+      posts.fetchPosts(site: site, query: posts.currentQuery, refresh: true);
     }
   }
 
@@ -95,10 +148,16 @@ class _HomeScreenState extends State<HomeScreen> {
       final info = await UpdateService().checkUpdate();
       if (!mounted) return;
       if (info.hasUpdate) {
+        if (settingsProv.autoDownloadUpdate && info.downloadUrl != null) {
+          unawaited(AppUpdateManager.instance.download(info));
+          return;
+        }
         final l10n = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${l10n.newVersionAvailable}: v${info.latestVersion}'),
+            content: Text(
+              '${l10n.newVersionAvailable}: v${info.latestVersion}',
+            ),
             action: SnackBarAction(
               label: l10n.viewUpdate,
               onPressed: () {
@@ -117,19 +176,48 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onRefresh() {
+  void _onUpdateDownloadChanged() {
+    final manager = AppUpdateManager.instance;
+    if (!mounted || _updateState == manager.state || manager.info == null) {
+      return;
+    }
+    _updateState = manager.state;
+    final l10n = context.l10n;
+    final message = switch (manager.state) {
+      UpdateDownloadState.downloading => l10n.downloadingUpdate,
+      UpdateDownloadState.ready => l10n.updateReady,
+      UpdateDownloadState.failed => l10n.updateDownloadFailed,
+      _ => null,
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$message: v${manager.info!.latestVersion}'),
+        action: SnackBarAction(
+          label: l10n.viewUpdate,
+          onPressed: () => showDialog(
+            context: context,
+            builder: (_) => UpdateDialog(updateInfo: manager.info!),
+          ),
+        ),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _onRefresh() async {
     final booruProv = context.read<BooruProvider>();
     final postsProv = context.read<PostsProvider>();
     if (booruProv.activeSite == null) return;
 
     if (_isPopular) {
-      postsProv.fetchPopular(
+      await postsProv.fetchPopular(
         site: booruProv.activeSite!,
         scale: _popularScale,
         refresh: true,
       );
     } else {
-      postsProv.fetchPosts(site: booruProv.activeSite!, refresh: true);
+      await postsProv.fetchPosts(site: booruProv.activeSite!, refresh: true);
     }
   }
 
@@ -186,8 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     boxShadow: settingsProv.useGradient
                         ? [
                             BoxShadow(
-                              color: settingsProv.accentColor
-                                  .withValues(alpha: 0.35),
+                              color: settingsProv.accentColor.withValues(
+                                alpha: 0.35,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -296,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: activeSite == null
           ? Center(child: Text(l10n.selectBooru))
           : RefreshIndicator(
-              onRefresh: () async => _onRefresh(),
+              onRefresh: _onRefresh,
               child: _buildBody(postsProv, activeSite, columns, l10n),
             ),
       floatingActionButton: Container(
@@ -340,7 +429,8 @@ class _HomeScreenState extends State<HomeScreen> {
     int columns,
     AppLocalizations l10n,
   ) {
-    if (postsProv.isLoading && postsProv.posts.isEmpty) {
+    if ((postsProv.isLoading || postsProv.isLoadingMore) &&
+        postsProv.posts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -431,7 +521,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Text(l10n.noSafePostsHint, textAlign: TextAlign.center),
               ),
             const SizedBox(height: 16),
-            OutlinedButton(onPressed: _onRefresh, child: Text(l10n.refresh)),
+            OutlinedButton(
+              onPressed: postsProv.hasMore
+                  ? () => _isPopular
+                        ? postsProv.fetchPopular(
+                            site: site,
+                            scale: _popularScale,
+                          )
+                        : postsProv.fetchPosts(site: site)
+                  : _onRefresh,
+              child: Text(postsProv.hasMore ? l10n.loadMore : l10n.refresh),
+            ),
           ],
         ),
       );

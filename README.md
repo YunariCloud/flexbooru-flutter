@@ -24,6 +24,26 @@
 
 使用 Flutter/Dart 实现统一的 Material 3 界面，包含 Android、Windows、iOS、macOS 和 Linux 平台工程；新增桌面端适配、响应式瀑布流列数、中文/英文界面、AMOLED 主题、全局主题强调色拓展、调用系统文件选择器自定义下载路径、在线检查更新服务、本地收藏与可配置网络请求头。
 
+### Windows ↔ Android 局域网实时同步
+
+1. 两台设备连接同一局域网。Windows 打开「设置 → 局域网同步」，开启同步主机。
+2. 选择 Windows 的实际局域网 IP；有多个网卡时，选择手机能够访问的地址。Android 打开同一设置页，扫描 Windows 上的二维码。
+3. 在 Windows 上确认刚扫码的设备。首次配对会合并两端数据，之后修改自动双向同步，无需导入或导出。
+
+同步内容：站点配置及用户名/API Key/Token、当前站点、收藏的作品信息、全局和站点黑名单、最近 20 条搜索历史、主题/语言/安全模式/图片质量/User-Agent 等设置。收藏同步的是作品信息和远程图片链接，**已下载的图片、视频、缓存、标签数据库和下载目录不会同步**。
+
+Windows 应用需保持打开。Android 在前台实时同步，进入后台暂停连接；回到前台、恢复网络或重新打开应用时会自动重连并合并离线修改。不同项目和站点字段独立合并；同一字段冲突按版本顺序确定结果，用户名与 Token 作为一组更新，删除通过保留删除标记同步。编辑期间收到远端更新，也会保留未被本次编辑改动的内容。Windows 的 IP 变化后，可在手机同步页修改主机 IP，无需再次配对。
+
+传输使用 WebSocket 上的 AES-256-GCM 加密，并通过随机配对密钥认证。二维码 5 分钟内有效，首次连接需在主机确认，成功后更换二维码并生成独立的设备密钥。登录凭据和设备密钥保存在加密日志中，主密钥由 Android Keystore / Windows 安全存储保护；首次运行自动迁移旧站点登录信息并移除普通首选项中的明文凭据。Windows 同步页可撤销设备授权。
+
+默认主机端口为 TCP **45873**。如果手机无法连接，请确认 Windows 防火墙允许 Flexbooru 在专用网络中接收入站连接，并检查路由器没有开启访客网络或客户端隔离。相机权限仅用于扫描配对码，也可以复制、粘贴临时配对链接。Android 最低配置为 API 23；若构建使用的 Flutter SDK 要求更高版本，则以安装包的最低版本为准。
+
+### 应用内自动下载更新
+
+Android 和 Windows 默认在启动时检查新版本，并在应用内自动下载匹配的 APK 或 Windows x64 ZIP。可在「设置」关闭自动下载；手动检查仍可点击下载。更新窗口显示进度，支持取消和重试，关闭窗口后下载继续。仅下载本项目 GitHub Releases 的安装包，检查文件大小和格式，并使用发布的 SHA-256 摘要或校验文件校验完整性；下载完整后才提供安装入口，已下载的有效包会复用。
+
+Android 点击「安装更新」调用系统安装器，首次需要允许 Flexbooru 安装应用，返回后再次点击安装。Windows 点击「打开更新包」，退出程序后将 ZIP 内文件解压到原程序目录。安装和替换由你确认。更新包保存在本机应用数据目录，不随局域网同步。
+
 ---
 
 ### 🌟 功能特性 (Features)
@@ -174,6 +194,20 @@ A multi-platform Booru client rewritten in Flutter and Dart based on the origina
 ### Implementation & Enhancements
 
 Flexbooru Flutter provides a unified Material 3 interface across Android, Windows, iOS, macOS, and Linux platforms. Enhancements over the original project include desktop layout adaptation, responsive masonry waterfall grid columns, bilingual interface (English / Chinese), AMOLED pure black theme, pervasive accent color customisation, native OS folder picker integration for download locations, in-app update checking with version comparison, offline favorites persistence, and configurable anti-WAF request headers.
+
+### Windows ↔ Android LAN Sync
+
+On Windows, open **Settings → LAN sync**, enable the host and select its LAN IP. On Android, open the same page, scan the pairing code, then approve the phone on Windows. Both devices must be on the same local network. First pairing merges existing data; subsequent changes sync automatically in both directions.
+
+Sync includes sites and login credentials, the active site, favorites metadata, blacklists, recent search history and app settings. **Downloaded images/videos, caches, the tag database and download folders stay local.** Keep the Windows app open. Android syncs live in the foreground and catches up after resume, reconnection or an app restart. If the Windows IP changes, edit the host IP on Android. Allow inbound TCP **45873** on your Windows private network if required, and disable router client isolation.
+
+AES-256-GCM encrypts traffic and the local sync journal. Short-lived QR codes require host approval; each approved device receives a separate random credential. Encryption keys use platform secure storage, and existing plaintext site logins are migrated automatically. Independent edits merge, deletions persist, and usernames/tokens update together. Revoke access from the Windows sync page. Android targets a minimum of API 23, or the Flutter SDK minimum when higher.
+
+### Automatic Update Downloads
+
+Android and Windows check at startup and automatically download the matching APK or Windows x64 ZIP in the app. Disable automatic downloads in Settings if preferred; manual checks still offer Download. The update dialog shows progress, cancellation and retry, and closing it leaves the download running. Downloads use this project's GitHub Releases, validate size and format, and check the published SHA-256 digest or checksum file when available. Only complete packages can be opened; verified cached downloads are reused.
+
+On Android, **Install Update** opens the system installer. Grant permission to install apps from Flexbooru when prompted, then return and tap Install Update again. On Windows, **Open Update Package** opens the ZIP; close Flexbooru and extract its contents into the existing program folder. You confirm installation or replacement. Update packages stay in local app storage and are excluded from LAN sync.
 
 ---
 

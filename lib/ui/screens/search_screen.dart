@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/sync/sync_preferences.dart';
+import '../../core/sync/sync_state.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../models/booru_site.dart';
@@ -22,30 +23,40 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   final BooruService _booruService = BooruService();
   Timer? _debounce;
+  StreamSubscription<Set<String>>? _syncSubscription;
+  int _suggestionGeneration = 0;
 
   final List<String> _selectedTags = [];
   List<Tag> _suggestions = [];
   List<String> _history = [];
+  List<String> _persistedHistory = [];
   bool _isLoadingSuggestions = false;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    _syncSubscription = SyncPreferences.remoteChanges.stream.listen((keys) {
+      if (keys.contains(historyPreference)) _loadHistory();
+    });
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _syncSubscription?.cancel();
+    _suggestionGeneration++;
     _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   void _loadHistory() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _history = prefs.getStringList('flex_search_history') ?? [];
+      _persistedHistory = List.of(_history);
     });
   }
 
@@ -57,33 +68,43 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_history.length > 20) {
       _history = _history.sublist(0, 20);
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('flex_search_history', _history);
+    final prefs = await SyncPreferences.getInstance();
+    final value = List<String>.of(_history);
+    await prefs.setStringList(
+      'flex_search_history',
+      value,
+      previousValue: _persistedHistory,
+    );
+    _persistedHistory = value;
   }
 
   void _onTextChanged() {
+    _debounce?.cancel();
+    final generation = ++_suggestionGeneration;
     final text = _controller.text.trim();
+    setState(() {
+      _suggestions = [];
+      _isLoadingSuggestions = text.isNotEmpty;
+    });
     if (text.isEmpty) {
-      setState(() {
-        _suggestions = [];
-        _isLoadingSuggestions = false;
-      });
       return;
     }
 
-    _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      setState(() => _isLoadingSuggestions = true);
+      if (!mounted || generation != _suggestionGeneration) return;
       try {
-        final list = await _booruService.getTagSuggestions(site: widget.site, query: text);
-        if (mounted) {
+        final list = await _booruService.getTagSuggestions(
+          site: widget.site,
+          query: text,
+        );
+        if (mounted && generation == _suggestionGeneration) {
           setState(() {
             _suggestions = list;
             _isLoadingSuggestions = false;
           });
         }
       } catch (_) {
-        if (mounted) {
+        if (mounted && generation == _suggestionGeneration) {
           setState(() => _isLoadingSuggestions = false);
         }
       }
@@ -130,7 +151,10 @@ class _SearchScreenState extends State<SearchScreen> {
                 : null,
           ),
           onSubmitted: (val) {
-            final allQuery = [..._selectedTags, if (val.trim().isNotEmpty) val.trim()].join(' ');
+            final allQuery = [
+              ..._selectedTags,
+              if (val.trim().isNotEmpty) val.trim(),
+            ].join(' ');
             if (allQuery.isNotEmpty) {
               _executeSearch(allQuery);
             }
@@ -141,7 +165,10 @@ class _SearchScreenState extends State<SearchScreen> {
             tooltip: l10n.search,
             icon: const Icon(Icons.search),
             onPressed: () {
-              final allQuery = [..._selectedTags, if (_controller.text.trim().isNotEmpty) _controller.text.trim()].join(' ');
+              final allQuery = [
+                ..._selectedTags,
+                if (_controller.text.trim().isNotEmpty) _controller.text.trim(),
+              ].join(' ');
               if (allQuery.isNotEmpty) {
                 _executeSearch(allQuery);
               }
@@ -156,7 +183,9 @@ class _SearchScreenState extends State<SearchScreen> {
           if (_selectedTags.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.4,
+              ),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -212,33 +241,42 @@ class _SearchScreenState extends State<SearchScreen> {
             child: _isLoadingSuggestions
                 ? const Center(child: CircularProgressIndicator())
                 : _suggestions.isNotEmpty
-                    ? ListView.builder(
-                        itemCount: _suggestions.length,
-                        itemBuilder: (context, index) {
-                          final tag = _suggestions[index];
-                          return ListTile(
-                            leading: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: tag.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            title: Text(tag.name, style: TextStyle(color: tag.color, fontWeight: FontWeight.bold)),
-                            subtitle: Text('${tag.categoryName} • ${tag.count}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.add, size: 20),
-                              onPressed: () => _addTag(tag.name),
-                            ),
-                            onTap: () {
-                              final allQuery = [..._selectedTags, tag.name].join(' ');
-                              _executeSearch(allQuery);
-                            },
-                          );
+                ? ListView.builder(
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      final tag = _suggestions[index];
+                      return ListTile(
+                        leading: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: tag.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        title: Text(
+                          tag.name,
+                          style: TextStyle(
+                            color: tag.color,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text('${tag.categoryName} • ${tag.count}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add, size: 20),
+                          onPressed: () => _addTag(tag.name),
+                        ),
+                        onTap: () {
+                          final allQuery = [
+                            ..._selectedTags,
+                            tag.name,
+                          ].join(' ');
+                          _executeSearch(allQuery);
                         },
-                      )
-                    : _buildHistorySection(l10n),
+                      );
+                    },
+                  )
+                : _buildHistorySection(l10n),
           ),
         ],
       ),
@@ -272,14 +310,24 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(l10n.searchHistory, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text(
+                l10n.searchHistory,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
               TextButton(
                 onPressed: () async {
                   setState(() => _history.clear());
-                  final prefs = await SharedPreferences.getInstance();
+                  final prefs = await SyncPreferences.getInstance();
                   await prefs.remove('flex_search_history');
+                  _persistedHistory = [];
                 },
-                child: Text(l10n.clearHistory, style: const TextStyle(fontSize: 12)),
+                child: Text(
+                  l10n.clearHistory,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),

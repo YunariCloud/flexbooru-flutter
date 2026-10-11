@@ -30,6 +30,15 @@ class BooruService {
     bool safeMode = false,
     String? nextCursor,
   }) async {
+    if (site.type == BooruType.danbooru || site.type == BooruType.danbooru1) {
+      return _danbooru.getPostPage(
+        site: site,
+        page: page,
+        limit: limit,
+        query: query,
+        safeMode: safeMode,
+      );
+    }
     if (site.type == BooruType.sankaku) {
       return _sankaku.getPostPage(
         site: site,
@@ -168,20 +177,39 @@ class BooruService {
     String scale = '1d',
     int page = 1,
     bool safeMode = false,
+  }) async => (await getPopularPage(
+    site: site,
+    scale: scale,
+    page: page,
+    safeMode: safeMode,
+  )).posts;
+
+  Future<PostPage> getPopularPage({
+    required BooruSite site,
+    String scale = '1d',
+    int page = 1,
+    bool safeMode = false,
+    String? nextCursor,
   }) async {
     if (site.type == BooruType.moebooru) {
-      return _moebooru.getPopularPosts(site: site, scale: scale, page: page);
+      final posts = await _moebooru.getPopularPosts(
+        site: site,
+        scale: scale,
+        page: page,
+      );
+      return PostPage(posts: posts, hasMore: posts.isNotEmpty);
     }
     if (site.type == BooruType.danbooru) {
-      return _danbooru.getPopularPosts(
+      return _danbooru.getPopularPage(
         site: site,
         scale: scale,
         page: page,
         safeMode: safeMode,
       );
     }
-    if (site.type == BooruType.gelbooru || site.type == BooruType.gelbooruLegacy) {
-      return _gelbooru.getPosts(
+    if (site.type == BooruType.gelbooru ||
+        site.type == BooruType.gelbooruLegacy) {
+      return getPostPage(
         site: site,
         page: page,
         limit: 20,
@@ -190,12 +218,13 @@ class BooruService {
       );
     }
     // Default to search with order:score or popular tags
-    return getPosts(
+    return getPostPage(
       site: site,
       page: page,
       limit: 20,
       safeMode: safeMode,
       query: 'order:score',
+      nextCursor: nextCursor,
     );
   }
 }

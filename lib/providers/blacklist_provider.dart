@@ -1,45 +1,60 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../core/sync/sync_preferences.dart';
 
 class BlacklistProvider extends ChangeNotifier {
   static const String _keyBlacklist = 'flexbooru_global_blacklist';
 
   List<String> _blacklist = [];
+  List<String> _persistedBlacklist = [];
   List<String> get blacklist => _blacklist;
 
   BlacklistProvider() {
-    loadBlacklist();
+    ready = loadBlacklist();
   }
 
+  late final Future<void> ready;
+
   Future<void> loadBlacklist() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     _blacklist = prefs.getStringList(_keyBlacklist) ?? [];
+    _persistedBlacklist = List.of(_blacklist);
     notifyListeners();
   }
 
   Future<void> addTag(String tag) async {
+    await ready;
     final cleaned = tag.trim().toLowerCase();
     if (cleaned.isNotEmpty && !_blacklist.contains(cleaned)) {
       _blacklist.add(cleaned);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_keyBlacklist, _blacklist);
+      await _save();
       notifyListeners();
     }
   }
 
   Future<void> removeTag(String tag) async {
+    await ready;
     final cleaned = tag.trim().toLowerCase();
     if (_blacklist.remove(cleaned)) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_keyBlacklist, _blacklist);
+      await _save();
       notifyListeners();
     }
   }
 
   Future<void> clearAll() async {
+    await ready;
     _blacklist.clear();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_keyBlacklist, _blacklist);
+    await _save();
     notifyListeners();
+  }
+
+  Future<void> _save() async {
+    final prefs = await SyncPreferences.getInstance();
+    final value = List<String>.of(_blacklist);
+    await prefs.setStringList(
+      _keyBlacklist,
+      value,
+      previousValue: _persistedBlacklist,
+    );
+    _persistedBlacklist = value;
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../core/sync/sync_preferences.dart';
 import '../core/constants/app_constants.dart';
 import '../core/network/api_client.dart';
 
@@ -15,6 +15,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _keyQuality = 'flex_image_quality';
   static const String _keyLanguage = 'flex_language';
   static const String _keyAutoCheckUpdate = 'flex_auto_check_update';
+  static const String _keyAutoDownloadUpdate = 'flex_auto_download_update';
   static const String _keyDownloadPath = 'flex_download_path';
   static const String _keyTagLanguage = 'flex_tag_language';
 
@@ -30,6 +31,7 @@ class SettingsProvider extends ChangeNotifier {
   String _languageCode = 'system'; // 'system', 'zh', 'en'
   String _tagLanguage = 'system'; // 'system', 'zh', 'en'
   bool _autoCheckUpdate = true;
+  bool _autoDownloadUpdate = true;
   String _downloadPath = '';
 
   ThemeMode get themeMode => _themeMode;
@@ -38,12 +40,12 @@ class SettingsProvider extends ChangeNotifier {
   Color? get gradientEndColor => _gradientEndColor;
   bool get useGradient => _useGradient && _gradientEndColor != null;
   LinearGradient get primaryGradient => LinearGradient(
-        colors: useGradient
-            ? [_accentColor, _gradientEndColor!]
-            : [_accentColor, _accentColor],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
+    colors: useGradient
+        ? [_accentColor, _gradientEndColor!]
+        : [_accentColor, _accentColor],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
   int get gridColumns => _gridColumns;
   bool get defaultSafeMode => _defaultSafeMode;
   String get userAgent => _userAgent;
@@ -58,7 +60,9 @@ class SettingsProvider extends ChangeNotifier {
     final sys = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     return sys.startsWith('zh') ? 'zh' : 'en';
   }
+
   bool get autoCheckUpdate => _autoCheckUpdate;
+  bool get autoDownloadUpdate => _autoDownloadUpdate;
   String get downloadPath => _downloadPath;
 
   Locale? get locale {
@@ -68,13 +72,14 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void>? _loadingFuture;
+  Future<void> get ready => _loadingFuture ?? Future.value();
 
   SettingsProvider() {
     _loadingFuture = loadSettings();
   }
 
   Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     final tm = prefs.getString(_keyThemeMode);
     if (tm == 'light') {
       _themeMode = ThemeMode.light;
@@ -86,9 +91,7 @@ class SettingsProvider extends ChangeNotifier {
 
     _amoled = prefs.getBool(_keyAmoled) ?? false;
     final colorValue = prefs.getInt(_keyColor);
-    if (colorValue != null) {
-      _accentColor = Color(colorValue);
-    }
+    _accentColor = Color(colorValue ?? 0xFF3F51B5);
     final endColorValue = prefs.getInt(_keyGradientEndColor);
     if (endColorValue != null) {
       _gradientEndColor = Color(endColorValue);
@@ -110,6 +113,7 @@ class SettingsProvider extends ChangeNotifier {
     _languageCode = prefs.getString(_keyLanguage) ?? 'system';
     _tagLanguage = prefs.getString(_keyTagLanguage) ?? 'system';
     _autoCheckUpdate = prefs.getBool(_keyAutoCheckUpdate) ?? true;
+    _autoDownloadUpdate = prefs.getBool(_keyAutoDownloadUpdate) ?? true;
     _downloadPath = prefs.getString(_keyDownloadPath) ?? '';
 
     notifyListeners();
@@ -118,7 +122,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setTagLanguage(String lang) async {
     if (_loadingFuture != null) await _loadingFuture;
     _tagLanguage = lang;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyTagLanguage, lang);
     notifyListeners();
   }
@@ -126,7 +130,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setDownloadPath(String path) async {
     if (_loadingFuture != null) await _loadingFuture;
     _downloadPath = path.trim();
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyDownloadPath, _downloadPath);
     notifyListeners();
   }
@@ -134,15 +138,23 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setAutoCheckUpdate(bool val) async {
     if (_loadingFuture != null) await _loadingFuture;
     _autoCheckUpdate = val;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setBool(_keyAutoCheckUpdate, val);
+    notifyListeners();
+  }
+
+  Future<void> setAutoDownloadUpdate(bool value) async {
+    await ready;
+    _autoDownloadUpdate = value;
+    final prefs = await SyncPreferences.getInstance();
+    await prefs.setBool(_keyAutoDownloadUpdate, value);
     notifyListeners();
   }
 
   Future<void> setLanguage(String code) async {
     if (_loadingFuture != null) await _loadingFuture;
     _languageCode = code;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyLanguage, code);
     notifyListeners();
   }
@@ -150,7 +162,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_loadingFuture != null) await _loadingFuture;
     _themeMode = mode;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyThemeMode, mode.name);
     notifyListeners();
   }
@@ -158,7 +170,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setAmoled(bool val) async {
     if (_loadingFuture != null) await _loadingFuture;
     _amoled = val;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setBool(_keyAmoled, val);
     notifyListeners();
   }
@@ -167,7 +179,7 @@ class SettingsProvider extends ChangeNotifier {
     if (_loadingFuture != null) await _loadingFuture;
     _accentColor = color;
     _useGradient = false;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setInt(_keyColor, color.toARGB32());
     await prefs.setBool(_keyUseGradient, false);
     notifyListeners();
@@ -178,7 +190,7 @@ class SettingsProvider extends ChangeNotifier {
     _accentColor = startColor;
     _gradientEndColor = endColor;
     _useGradient = true;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setInt(_keyColor, startColor.toARGB32());
     await prefs.setInt(_keyGradientEndColor, endColor.toARGB32());
     await prefs.setBool(_keyUseGradient, true);
@@ -188,7 +200,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setGridColumns(int cols) async {
     if (_loadingFuture != null) await _loadingFuture;
     _gridColumns = cols;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setInt(_keyColumns, cols);
     notifyListeners();
   }
@@ -196,7 +208,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setDefaultSafeMode(bool val) async {
     if (_loadingFuture != null) await _loadingFuture;
     _defaultSafeMode = val;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setBool(_keySafeMode, val);
     notifyListeners();
   }
@@ -205,7 +217,7 @@ class SettingsProvider extends ChangeNotifier {
     if (_loadingFuture != null) await _loadingFuture;
     _userAgent = ua.trim().isEmpty ? AppConstants.defaultUserAgent : ua.trim();
     ApiClient().setUserAgent(_userAgent);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyUserAgent, _userAgent);
     notifyListeners();
   }
@@ -213,7 +225,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setImageQuality(String q) async {
     if (_loadingFuture != null) await _loadingFuture;
     _imageQuality = q;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SyncPreferences.getInstance();
     await prefs.setString(_keyQuality, q);
     notifyListeners();
   }

@@ -14,11 +14,12 @@ class TagBlacklistScreen extends StatefulWidget {
 class _TagBlacklistScreenState extends State<TagBlacklistScreen> {
   final TextEditingController _controller = TextEditingController();
 
-  void _addTag() {
+  void _addTag() async {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
       final prov = context.read<BlacklistProvider>();
-      prov.addTag(text);
+      await prov.addTag(text);
+      if (!mounted) return;
       _controller.clear();
       final postsProv = context.read<PostsProvider>();
       postsProv.setBlacklist(prov.blacklist);
@@ -45,8 +46,14 @@ class _TagBlacklistScreenState extends State<TagBlacklistScreen> {
                     title: Text(l10n.clear),
                     content: Text(l10n.clearAllBlacklistConfirm),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.clear)),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(l10n.cancel),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(l10n.clear),
+                      ),
                     ],
                   ),
                 );
@@ -78,10 +85,7 @@ class _TagBlacklistScreenState extends State<TagBlacklistScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                FilledButton(
-                  onPressed: _addTag,
-                  child: Text(l10n.add),
-                ),
+                FilledButton(onPressed: _addTag, child: Text(l10n.add)),
               ],
             ),
           ),
@@ -110,20 +114,32 @@ class _TagBlacklistScreenState extends State<TagBlacklistScreen> {
           Expanded(
             child: blacklistProv.blacklist.isEmpty
                 ? Center(
-                    child: Text(l10n.noBlacklistTags, style: const TextStyle(color: Colors.grey)),
+                    child: Text(
+                      l10n.noBlacklistTags,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   )
                 : ListView.builder(
                     itemCount: blacklistProv.blacklist.length,
                     itemBuilder: (context, index) {
                       final tag = blacklistProv.blacklist[index];
                       return ListTile(
-                        leading: const Icon(Icons.block, color: Colors.redAccent, size: 20),
-                        title: Text(tag, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        leading: const Icon(
+                          Icons.block,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                        title: Text(
+                          tag,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
                         trailing: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () {
                             blacklistProv.removeTag(tag);
-                            context.read<PostsProvider>().setBlacklist(blacklistProv.blacklist);
+                            context.read<PostsProvider>().setBlacklist(
+                              blacklistProv.blacklist,
+                            );
                           },
                         ),
                       );

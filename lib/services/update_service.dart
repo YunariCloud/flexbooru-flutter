@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:package_info_plus/package_info_plus.dart';
 import '../core/constants/app_constants.dart';
 import '../core/network/api_client.dart';
 
@@ -13,6 +14,10 @@ class UpdateInfo {
   final String releaseNotes;
   final String releaseUrl;
   final String? downloadUrl;
+  final String? assetName;
+  final int? assetSize;
+  final String? assetSha256;
+  final String? checksumUrl;
   final DateTime? publishedAt;
   final bool hasUpdate;
 
@@ -24,6 +29,10 @@ class UpdateInfo {
     required this.releaseNotes,
     required this.releaseUrl,
     this.downloadUrl,
+    this.assetName,
+    this.assetSize,
+    this.assetSha256,
+    this.checksumUrl,
     this.publishedAt,
     required this.hasUpdate,
   });
@@ -31,13 +40,14 @@ class UpdateInfo {
 
 class UpdateService {
   final Dio? _customDio;
+  final String? targetPlatform;
 
-  UpdateService({Dio? dio}) : _customDio = dio;
+  UpdateService({Dio? dio, this.targetPlatform}) : _customDio = dio;
 
   Dio get _dio => _customDio ?? ApiClient().dio;
 
   Future<UpdateInfo> checkUpdate({String? currentVersion}) async {
-    final curVer = (currentVersion ?? AppConstants.rawVersion).trim();
+    final curVer = (currentVersion ?? await installedVersion()).trim();
 
     try {
       // 1. Try official GitHub Releases API
@@ -60,35 +70,51 @@ class UpdateService {
       final tagName = (parsed['tag_name'] as String? ?? '').trim();
       final title = (parsed['name'] as String? ?? tagName).trim();
       final releaseNotes = (parsed['body'] as String? ?? '').trim();
-      final htmlUrl = (parsed['html_url'] as String? ?? AppConstants.githubReleasesUrl).trim();
+      final htmlUrl =
+          (parsed['html_url'] as String? ?? AppConstants.githubReleasesUrl)
+              .trim();
       final publishedAtStr = parsed['published_at'] as String?;
-      final publishedAt = publishedAtStr != null ? DateTime.tryParse(publishedAtStr) : null;
+      final publishedAt = publishedAtStr != null
+          ? DateTime.tryParse(publishedAtStr)
+          : null;
 
-      final latestVer = normalizeVersion(tagName);
+      final latestVer = _releaseVersion(tagName);
       final hasUpdate = isNewerVersion(latestVer, curVer);
 
       // Extract direct asset download URL for Android or Windows
-      String? downloadUrl;
       final assets = parsed['assets'] as List<dynamic>? ?? [];
-      if (!kIsWeb) {
-        if (Platform.isAndroid) {
-          for (final asset in assets) {
-            final name = (asset['name'] as String? ?? '').toLowerCase();
-            if (name.endsWith('.apk')) {
-              downloadUrl = asset['browser_download_url'] as String?;
-              break;
-            }
-          }
-        } else if (Platform.isWindows) {
-          for (final asset in assets) {
-            final name = (asset['name'] as String? ?? '').toLowerCase();
-            if (name.endsWith('.zip')) {
-              downloadUrl = asset['browser_download_url'] as String?;
-              break;
-            }
-          }
-        }
-      }
+      final platform =
+          targetPlatform ?? (kIsWeb ? 'web' : Platform.operatingSystem);
+      final candidates =
+          assets
+              .whereType<Map>()
+              .where(
+                (asset) =>
+                    assetScore(asset['name'] as String? ?? '', platform) > 0 &&
+                    isTrustedAssetUrl(
+                      asset['browser_download_url'] as String? ?? '',
+                    ),
+              )
+              .toList()
+            ..sort(
+              (a, b) => assetScore(
+                b['name'] as String,
+                platform,
+              ).compareTo(assetScore(a['name'] as String, platform)),
+            );
+      final asset = candidates.firstOrNull;
+      final checksums = assets
+          .whereType<Map>()
+          .where(
+            (asset) =>
+                (asset['name'] as String? ?? '').toLowerCase() ==
+                    '$platform-sha256sums.txt' &&
+                isTrustedAssetUrl(
+                  asset['browser_download_url'] as String? ?? '',
+                ),
+          )
+          .firstOrNull;
+      final digest = asset?['digest'] as String?;
 
       return UpdateInfo(
         currentVersion: curVer,
@@ -97,7 +123,15 @@ class UpdateService {
         title: title.isEmpty ? tagName : title,
         releaseNotes: releaseNotes,
         releaseUrl: htmlUrl,
-        downloadUrl: downloadUrl ?? htmlUrl,
+        downloadUrl: asset?['browser_download_url'] as String?,
+        assetName: asset?['name'] as String?,
+        assetSize: asset?['size'] as int?,
+        assetSha256:
+            digest != null &&
+                RegExp(r'^sha256:[0-9a-fA-F]{64}$').hasMatch(digest)
+            ? digest.substring(7).toLowerCase()
+            : null,
+        checksumUrl: checksums?['browser_download_url'] as String?,
         publishedAt: publishedAt,
         hasUpdate: hasUpdate,
       );
@@ -115,9 +149,12 @@ class UpdateService {
         );
 
         final location = redirectResp.headers.value('location');
-        if (location != null && location.contains('/releases/tag/')) {
-          final rawTag = location.split('/releases/tag/').last.split('?').first.trim();
-          final latestVer = normalizeVersion(rawTag);
+        if (location != null &&
+            location.startsWith(
+              'https://github.com/${AppConstants.githubRepo}/releases/tag/',
+            )) {
+          final rawTag = Uri.parse(location).pathSegments.last;
+          final latestVer = _releaseVersion(rawTag);
           final hasUpdate = isNewerVersion(latestVer, curVer);
           return UpdateInfo(
             currentVersion: curVer,
@@ -126,7 +163,6 @@ class UpdateService {
             title: 'Flexbooru $rawTag',
             releaseNotes: '',
             releaseUrl: location,
-            downloadUrl: location,
             hasUpdate: hasUpdate,
           );
         }
@@ -135,6 +171,63 @@ class UpdateService {
       }
       rethrow;
     }
+  }
+
+  static Future<String> installedVersion() async {
+    try {
+      final package = await PackageInfo.fromPlatform();
+      final version = AppConstants.rawVersion.contains('-')
+          ? AppConstants.rawVersion
+          : package.version;
+      return package.buildNumber.isEmpty
+          ? version
+          : '$version+${package.buildNumber}';
+    } catch (_) {
+      return AppConstants.rawVersion;
+    }
+  }
+
+  static String _releaseVersion(String tag) {
+    final version = normalizeVersion(tag);
+    if (!RegExp(
+      r'^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+\d+)?$',
+    ).hasMatch(version)) {
+      throw const FormatException('Invalid release version');
+    }
+    return version;
+  }
+
+  static bool isTrustedAssetUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri != null &&
+        uri.scheme == 'https' &&
+        uri.host == 'github.com' &&
+        uri.userInfo.isEmpty &&
+        (!uri.hasPort || uri.port == 443) &&
+        uri.path.startsWith('/${AppConstants.githubRepo}/releases/download/');
+  }
+
+  static int assetScore(String name, String platform) {
+    final lower = name.toLowerCase();
+    if (platform == 'android' && lower.endsWith('.apk')) {
+      if (lower.contains('universal')) return 100;
+      if (RegExp(r'arm64|armeabi|armv7|x86').hasMatch(lower)) return 0;
+      return 50;
+    }
+    if (platform == 'windows' && lower.endsWith('.zip')) {
+      if (RegExp(
+        r'linux|macos|darwin|source|arm64|aarch64|x86(?!_64)',
+      ).hasMatch(lower)) {
+        return 0;
+      }
+      if (lower.contains('windows') &&
+          (lower.contains('x64') || lower.contains('amd64'))) {
+        return 100;
+      }
+      if (lower.contains('windows') || lower.contains('win64')) return 75;
+      return lower == 'app.zip' || lower == 'flexbooru.zip' ? 25 : 0;
+    }
+    return 0;
   }
 
   static String normalizeVersion(String v) {
@@ -164,8 +257,14 @@ class UpdateService {
     final preParts1 = baseWithPre1.split('-');
     final preParts2 = baseWithPre2.split('-');
 
-    final main1 = preParts1[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final main2 = preParts2[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final main1 = preParts1[0]
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    final main2 = preParts2[0]
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
 
     while (main1.length < 3) {
       main1.add(0);
@@ -187,8 +286,25 @@ class UpdateService {
     if (!isPre1 && isPre2) return 1; // Release is newer than pre-release
     if (isPre1 && !isPre2) return -1;
     if (isPre1 && isPre2) {
-      final comp = preParts1[1].compareTo(preParts2[1]);
-      if (comp != 0) return comp;
+      final identifiers1 = preParts1.skip(1).join('-').split('.');
+      final identifiers2 = preParts2.skip(1).join('-').split('.');
+      for (var i = 0; i < identifiers1.length && i < identifiers2.length; i++) {
+        final number1 = int.tryParse(identifiers1[i]);
+        final number2 = int.tryParse(identifiers2[i]);
+        final int comparison;
+        if (number1 != null && number2 != null) {
+          comparison = number1.compareTo(number2);
+        } else if (number1 != null || number2 != null) {
+          comparison = number1 != null ? -1 : 1;
+        } else {
+          comparison = identifiers1[i].compareTo(identifiers2[i]);
+        }
+        if (comparison != 0) return comparison;
+      }
+      final lengthComparison = identifiers1.length.compareTo(
+        identifiers2.length,
+      );
+      if (lengthComparison != 0) return lengthComparison;
     }
 
     // Check build number

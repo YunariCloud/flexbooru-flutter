@@ -1,8 +1,6 @@
 import 'dart:io' show File, Platform;
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,6 +17,7 @@ import '../../providers/settings_provider.dart';
 import '../../services/booru_service.dart';
 import '../../services/tag_translation_service.dart';
 import '../widgets/tag_chip.dart';
+import '../widgets/post_image_viewer.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post initialPost;
@@ -37,15 +36,22 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   late Post _post;
   bool _isDownloading = false;
-  double _downloadProgress = 0;
-  bool _loadOriginal = false;
+  final _downloadProgress = ValueNotifier<double>(0);
+  late String _imageQuality;
   String? _tagLanguageOverride;
 
   @override
   void initState() {
     super.initState();
     _post = widget.initialPost;
+    _imageQuality = context.read<SettingsProvider>().imageQuality;
     _enrichPostTags();
+  }
+
+  @override
+  void dispose() {
+    _downloadProgress.dispose();
+    super.dispose();
   }
 
   void _enrichPostTags() async {
@@ -62,7 +68,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (_isDownloading) return;
     setState(() {
       _isDownloading = true;
-      _downloadProgress = 0;
+      _downloadProgress.value = 0;
     });
 
     final targetUrl = _post.originUrl.isNotEmpty
@@ -78,10 +84,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ? settingsProv.downloadPath
             : null,
         onProgress: (received, total) {
-          if (total > 0) {
-            setState(() {
-              _downloadProgress = received / total;
-            });
+          if (mounted && total > 0) {
+            _downloadProgress.value = received / total;
           }
         },
       );
@@ -93,7 +97,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             content: Text(l10n.savedTo(savedPath ?? '')),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
-            action: (savedPath != null &&
+            action:
+                (savedPath != null &&
                     (Platform.isWindows ||
                         Platform.isMacOS ||
                         Platform.isLinux))
@@ -189,7 +194,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void _showTagActionsSheet(Tag tag, String effectiveLang) {
     final l10n = context.l10n;
     final isZh = effectiveLang == 'zh';
-    final hasCn = tag.translatedName != null &&
+    final hasCn =
+        tag.translatedName != null &&
         tag.translatedName!.isNotEmpty &&
         tag.translatedName != tag.name;
 
@@ -294,10 +300,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Navigator.pop(context); // Close info sheet
                     Navigator.pop(context); // Close detail screen
                     context.read<PostsProvider>().fetchPosts(
-                          site: widget.site,
-                          query: tag.name,
-                          refresh: true,
-                        );
+                      site: widget.site,
+                      query: tag.name,
+                      refresh: true,
+                    );
                   },
                 ),
                 ListTile(
@@ -467,8 +473,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               .withValues(alpha: 0.45),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: theme.colorScheme.outlineVariant
-                                .withValues(alpha: 0.3),
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.3,
+                            ),
                           ),
                         ),
                         child: Column(
@@ -524,8 +531,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     icon: Icons.insert_drive_file_outlined,
                                     label: l10n.format,
                                     value: format,
-                                    extra:
-                                        sizeText.isNotEmpty ? '($sizeText)' : null,
+                                    extra: sizeText.isNotEmpty
+                                        ? '($sizeText)'
+                                        : null,
                                   ),
                                 ),
                               ],
@@ -670,59 +678,63 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
                       // Grouped Category Tags
                       ...categoryOrder
-                          .where((c) =>
-                              groupedTags.containsKey(c) &&
-                              groupedTags[c]!.isNotEmpty)
+                          .where(
+                            (c) =>
+                                groupedTags.containsKey(c) &&
+                                groupedTags[c]!.isNotEmpty,
+                          )
                           .map((cat) {
-                        final catTags = groupedTags[cat]!;
-                        final catName = isZh
-                            ? TagCategory.getCategoryNameZh(cat)
-                            : TagCategory.getCategoryName(cat);
-                        final catColor = catTags.first.color;
+                            final catTags = groupedTags[cat]!;
+                            final catName = isZh
+                                ? TagCategory.getCategoryNameZh(cat)
+                                : TagCategory.getCategoryName(cat);
+                            final catColor = catTags.first.color;
 
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: catColor,
-                                      shape: BoxShape.circle,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: catColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '$catName (${catTags.length})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: catColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '$catName (${catTags.length})',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: catColor,
-                                    ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: catTags.map((t) {
+                                      return TagChip(
+                                        tag: t,
+                                        tagLanguage: effectiveLang,
+                                        onTap: () => _showTagActionsSheet(
+                                          t,
+                                          effectiveLang,
+                                        ),
+                                      );
+                                    }).toList(),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: catTags.map((t) {
-                                  return TagChip(
-                                    tag: t,
-                                    tagLanguage: effectiveLang,
-                                    onTap: () =>
-                                        _showTagActionsSheet(t, effectiveLang),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                            );
+                          }),
 
                       const SizedBox(height: 24),
                     ],
@@ -855,7 +867,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   label,
                   style: TextStyle(
                     fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.8,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -898,10 +912,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       children: [
         Icon(icon, size: 16, color: Colors.grey),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
-        ),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(width: 12),
         Expanded(child: child),
       ],
@@ -914,10 +925,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final favProv = context.watch<FavoritesProvider>();
     final isFav = favProv.isFavorite(_post.id, widget.site.id);
     final headers = ApiClient.getImageHeaders(host: widget.site.host);
-
-    final imageUrl = _loadOriginal && _post.originUrl.isNotEmpty
-        ? _post.originUrl
-        : (_post.sampleUrl.isNotEmpty ? _post.sampleUrl : _post.originUrl);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -933,12 +940,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           if (_post.originUrl.isNotEmpty && _post.originUrl != _post.sampleUrl)
             TextButton(
               onPressed: () {
-                setState(() => _loadOriginal = !_loadOriginal);
+                setState(
+                  () => _imageQuality = _imageQuality == 'original'
+                      ? 'sample'
+                      : 'original',
+                );
               },
               child: Text(
-                _loadOriginal ? l10n.original : l10n.sample,
+                switch (_imageQuality) {
+                  'original' => l10n.original,
+                  'preview' => l10n.qualityPreview,
+                  _ => l10n.sample,
+                },
                 style: TextStyle(
-                  color: _loadOriginal ? Colors.amber : Colors.white70,
+                  color: _imageQuality == 'original'
+                      ? Colors.amber
+                      : Colors.white70,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -959,97 +976,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          PhotoView(
-            imageProvider: CachedNetworkImageProvider(
-              imageUrl,
-              headers: headers,
-            ),
-            minScale: PhotoViewComputedScale.contained,
-            maxScale: PhotoViewComputedScale.covered * 3.5,
-            loadingBuilder: (context, event) {
-              return Center(
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                    value: event == null || event.expectedTotalBytes == null
-                        ? null
-                        : event.cumulativeBytesLoaded /
-                              event.expectedTotalBytes!,
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.broken_image,
-                      size: 56,
-                      color: Colors.white60,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.failedToLoadFullImage,
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => setState(() {}),
-                      child: Text(l10n.retry),
-                    ),
-                  ],
-                ),
-              );
-            },
+          PostImageViewer(
+            post: _post,
+            quality: _imageQuality,
+            headers: headers,
           ),
-
-          // Download progress indicator overlay
           if (_isDownloading)
             Positioned(
               left: 0,
               right: 0,
               bottom: 70,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          value: _downloadProgress > 0
-                              ? _downloadProgress
-                              : null,
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${l10n.downloading} ${(_downloadProgress * 100).toInt()}%...',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: DownloadProgressOverlay(progress: _downloadProgress),
             ),
         ],
       ),

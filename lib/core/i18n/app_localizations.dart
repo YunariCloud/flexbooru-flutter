@@ -20,6 +20,7 @@ class AppLocalizations {
   String get appName => 'Flexbooru';
   String get retry => isZh ? '重试' : 'Retry';
   String get refresh => isZh ? '刷新' : 'Refresh';
+  String get loadMore => isZh ? '继续加载' : 'Load more';
   String get cancel => isZh ? '取消' : 'Cancel';
   String get confirm => isZh ? '确定' : 'Confirm';
   String get save => isZh ? '保存' : 'Save';
@@ -146,7 +147,8 @@ class AppLocalizations {
   String get saveChanges => isZh ? '保存修改' : 'Save Changes';
   String get credentialsGuide => isZh ? '站点登录与凭据指南' : 'Site Credentials Guide';
   String get viewCredentialsGuide => isZh ? '查看获取教程' : 'Credentials Guide';
-  String get openWebsiteCredentialsPage => isZh ? '前往官网获取' : 'Open Settings Page';
+  String get openWebsiteCredentialsPage =>
+      isZh ? '前往官网获取' : 'Open Settings Page';
   String get copyUrl => isZh ? '复制网址' : 'Copy URL';
   String get close => isZh ? '关闭' : 'Close';
   String get authRequirement => isZh ? '认证要求' : 'Authentication Requirement';
@@ -155,8 +157,10 @@ class AppLocalizations {
   String get noAuthNeededBadge => isZh ? '无需登录即可使用' : 'No Auth Needed';
   String get recommendedBadge => isZh ? '建议配置' : 'Recommended';
   String get optionalBadge => isZh ? '按需配置 (可选)' : 'Optional';
-  String get currentSiteGuide => isZh ? '当前站点凭据指南' : 'Current Site Credentials Guide';
-  String get selectSiteToViewGuide => isZh ? '切换站点查看说明' : 'Switch site to view guide';
+  String get currentSiteGuide =>
+      isZh ? '当前站点凭据指南' : 'Current Site Credentials Guide';
+  String get selectSiteToViewGuide =>
+      isZh ? '切换站点查看说明' : 'Switch site to view guide';
 
   // Blacklist
   String get addTagBlacklist => isZh ? '添加标签到黑名单' : 'Add tag to blacklist';
@@ -205,8 +209,9 @@ class AppLocalizations {
   String get hexCode => isZh ? '十六进制色值' : 'Hex Code';
   String get livePreview => isZh ? '效果预览' : 'Preview';
   String get applyColor => isZh ? '应用配色' : 'Apply Palette';
-  String get invalidHexColor =>
-      isZh ? '请输入有效的十六进制色值 (如 #3F51B5)' : 'Please enter a valid hex color (e.g. #3F51B5)';
+  String get invalidHexColor => isZh
+      ? '请输入有效的十六进制色值 (如 #3F51B5)'
+      : 'Please enter a valid hex color (e.g. #3F51B5)';
   String get layoutDisplay => isZh ? '布局与画质' : 'Layout & Display';
   String get gridColumns => isZh ? '瀑布流列数' : 'Grid Columns';
   String get gridAuto => isZh ? '自适应屏幕' : 'Auto';
@@ -248,16 +253,48 @@ class AppLocalizations {
   String get alreadyLatestVersion =>
       isZh ? '当前已是最新版本' : 'Already running the latest version';
   String get newVersionAvailable => isZh ? '发现新版本' : 'New Version Available';
-  String get viewUpdate => isZh ? '前往下载 / 查看' : 'Download / View';
+  String get viewUpdate => isZh ? '查看更新' : 'View Update';
   String get updateNotes => isZh ? '更新说明' : 'Release Notes';
   String get later => isZh ? '稍后再说' : 'Later';
-  String get checkUpdateFailed =>
-      isZh ? '检查更新失败，请检查网络或稍后重试' : 'Failed to check for updates, please check network and try again';
-  String get openReleasesPage =>
-      isZh ? '前往 Releases 页面' : 'Open Releases Page';
+  String get checkUpdateFailed => isZh
+      ? '检查更新失败，请检查网络或稍后重试'
+      : 'Failed to check for updates, please check network and try again';
+  String get openReleasesPage => isZh ? '前往 Releases 页面' : 'Open Releases Page';
   String get autoCheckUpdates => isZh ? '启动时检查更新' : 'Check Updates on Startup';
-  String get autoCheckUpdatesSub =>
-      isZh ? '应用启动时自动检测是否有可用新版本' : 'Automatically check for new versions on app startup';
+  String get autoDownloadUpdates =>
+      isZh ? '自动下载更新' : 'Download Updates Automatically';
+  String get autoDownloadUpdatesSub => isZh
+      ? '发现新版本后在应用内下载，安装时由你确认'
+      : 'Download new releases in the app; you choose when to install';
+  String get downloadUpdate => isZh ? '下载更新' : 'Download Update';
+  String get downloadingUpdate => isZh ? '正在下载更新' : 'Downloading update';
+  String get verifyingUpdate => isZh ? '正在校验更新包' : 'Verifying update';
+  String get updateReady => isZh ? '更新包已下载' : 'Update downloaded';
+  String get installUpdate => isZh ? '安装更新' : 'Install Update';
+  String get openUpdatePackage => isZh ? '打开更新包' : 'Open Update Package';
+  String get updateDownloadFailed => isZh
+      ? '更新下载失败，请检查网络或剩余空间后重试。'
+      : 'Download failed. Check your connection and free storage, then retry.';
+  String get updateOpenFailed => isZh
+      ? '无法打开更新包，请确认安装权限或重试。'
+      : 'Unable to open the update package. Check install permissions or retry.';
+  String get updateIntegrityFailed => isZh
+      ? '更新包不完整或校验失败，请重新下载。'
+      : 'Update is incomplete or failed verification. Download again.';
+  String get noCompatibleUpdate => isZh
+      ? '此版本尚无适合本设备的更新包，可前往发布页查看。'
+      : 'No compatible package is available. Check the release page.';
+  String get updateCancelled =>
+      isZh ? '已取消下载，可随时重试。' : 'Download cancelled. Retry any time.';
+  String get allowUpdateInstall => isZh
+      ? '请允许 Flexbooru 安装应用，返回后再次点击“安装更新”。'
+      : 'Allow Flexbooru to install apps, then return and tap Install Update again.';
+  String get windowsUpdateInstructions => isZh
+      ? '下载完成后打开压缩包，退出 Flexbooru，再将包内文件解压到原程序目录。'
+      : 'Open the ZIP, close Flexbooru, then extract its contents to your existing app folder.';
+  String get autoCheckUpdatesSub => isZh
+      ? '应用启动时自动检测是否有可用新版本'
+      : 'Automatically check for new versions on app startup';
 
   // Download Settings
   String get downloadSettings => isZh ? '下载设置' : 'Download Settings';
@@ -303,10 +340,10 @@ class AppLocalizations {
   String get downloadTagDb =>
       isZh ? '下载完整词库 (33万+ 标签)' : 'Download Full Dictionary (330k+ tags)';
   String get tagDbReady => isZh ? '完整词库已就绪' : 'Full dictionary ready';
-  String get tagDbEmbedded =>
-      isZh ? '内置精选词库 (3,500+ 高频标签)' : 'Built-in popular dictionary (3,500+ tags)';
-  String get tagDbUpToDate =>
-      isZh ? '词库已是最新版本' : 'Dictionary is up to date';
+  String get tagDbEmbedded => isZh
+      ? '内置精选词库 (3,500+ 高频标签)'
+      : 'Built-in popular dictionary (3,500+ tags)';
+  String get tagDbUpToDate => isZh ? '词库已是最新版本' : 'Dictionary is up to date';
   String get tagDbUpdateFound =>
       isZh ? '发现新版标签词库' : 'New tag dictionary update available';
   String get tagDbDownloading =>
