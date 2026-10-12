@@ -1,12 +1,31 @@
 import tempfile
+import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from zipfile import ZipFile
 
-from release_packages import package_names, package_windows, redundant_assets
+from release_packages import clean_release, package_names, package_windows, redundant_assets
 
 
 class ReleasePackagesTests(unittest.TestCase):
+    def test_draft_cleanup_uses_release_id_instead_of_public_tag_endpoint(self):
+        assets = [{"name": name, "digest": "sha256:" + "a" * 64}
+                  for name in package_names("v1.3.0")]
+        assets.append({"name": "build.log"})
+        with patch.dict("os.environ", {"GH_REPO": "owner/repo"}), \
+                patch("release_packages.subprocess.check_output", side_effect=[
+                    json.dumps({"databaseId": 123}),
+                    json.dumps({"draft": True, "assets": assets}),
+                ]) as read, patch("release_packages.subprocess.run") as delete:
+            clean_release("v1.3.0", "v1.3.0")
+        self.assertEqual(read.call_args_list[0].args[0],
+                         ["gh", "release", "view", "v1.3.0", "--repo", "owner/repo", "--json", "databaseId"])
+        self.assertEqual(read.call_args_list[1].args[0],
+                         ["gh", "api", "repos/owner/repo/releases/123"])
+        delete.assert_called_once_with(
+            ["gh", "release", "delete-asset", "--yes", "--", "v1.3.0", "build.log"], check=True)
+
     def test_windows_archive_keeps_runtime_and_license_but_no_build_extras(self):
         with tempfile.TemporaryDirectory(prefix="flexbooru-package-test-") as directory:
             root = Path(directory).resolve()

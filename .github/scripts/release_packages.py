@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
@@ -49,7 +48,16 @@ def redundant_assets(assets, label):
 
 def clean_release(tag, label):
     repo = os.environ["GH_REPO"]
-    endpoint = f"repos/{repo}/releases/tags/{quote(tag, safe='')}"
+    # The REST tag endpoint excludes drafts. gh resolves both drafts and
+    # published releases; their numeric ID works with the REST asset metadata.
+    identity = json.loads(subprocess.check_output(
+        ["gh", "release", "view", tag, "--repo", repo, "--json", "databaseId"],
+        encoding="utf-8",
+    ))
+    release_id = identity["databaseId"]
+    if not isinstance(release_id, int) or release_id <= 0:
+        raise ValueError("Missing GitHub release ID")
+    endpoint = f"repos/{repo}/releases/{release_id}"
     release = json.loads(subprocess.check_output(["gh", "api", endpoint], encoding="utf-8"))
     for name in redundant_assets(release["assets"], label):
         subprocess.run(["gh", "release", "delete-asset", "--yes", "--", tag, name], check=True)
