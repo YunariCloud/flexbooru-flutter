@@ -63,7 +63,7 @@ jobs:
       - run: flutter test --no-pub
 
   android:
-    name: Android APK and App Bundle
+    name: Android universal APK
     needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -118,19 +118,14 @@ jobs:
           fi
       - name: Build universal APK
         run: flutter build apk --release --build-name="$APP_VERSION" --build-number="$BUILD_NUMBER" --dart-define="APP_VERSION=$APP_VERSION"
-      - name: Build Android App Bundle
-        run: flutter build appbundle --release --build-name="$APP_VERSION" --build-number="$BUILD_NUMBER" --dart-define="APP_VERSION=$APP_VERSION"
       - name: Package Android artifacts
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/flexbooru-flutter-$ARTIFACT_LABEL-android-universal.apk"
-          cp build/app/outputs/bundle/release/app-release.aab "dist/flexbooru-flutter-$ARTIFACT_LABEL-android.aab"
-          cp LICENSE dist/LICENSE
-          (cd dist && sha256sum ./*.apk ./*.aab > android-SHA256SUMS.txt)
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-android
-          path: dist/
+          path: dist/*.apk
           if-no-files-found: error
           retention-days: 14
       - name: Remove signing material from the runner
@@ -164,19 +159,13 @@ jobs:
         run: flutter build windows --release --build-name="$env:APP_VERSION" --build-number="$env:BUILD_NUMBER" --dart-define="APP_VERSION=$env:APP_VERSION"
       - name: Package complete Windows runtime
         run: |
-          $runtime = 'build/windows/x64/runner/Release'
-          if (-not (Test-Path "$runtime/flexbooru.exe")) { throw 'Windows executable is missing' }
-          Copy-Item -LiteralPath LICENSE -Destination "$runtime/LICENSE"
-          Copy-Item -LiteralPath README.md -Destination "$runtime/README.md"
-          New-Item -ItemType Directory -Path dist -Force | Out-Null
           $archive = "flexbooru-flutter-$env:ARTIFACT_LABEL-windows-x64.zip"
-          Compress-Archive -Path "$runtime/*" -DestinationPath "dist/$archive"
-          $hash = (Get-FileHash -LiteralPath "dist/$archive" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $archive" | Set-Content -LiteralPath dist/windows-SHA256SUMS.txt -Encoding utf8
+          python .github/scripts/release_packages.py windows --runtime build/windows/x64/runner/Release --output "dist/$archive"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-windows
-          path: dist/
+          path: dist/*.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -192,6 +181,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      ARTIFACT_LABEL: ${{ needs.validate.outputs.label }}
       PRERELEASE: ${{ needs.validate.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -208,9 +198,8 @@ jobs:
           cat > release-notes.md <<'NOTES'
           自动构建产物 / Automated builds:
           - Android universal APK：直接安装，覆盖 arm64、armv7 和 x86_64。
-          - Android App Bundle：用于后续应用商店分发，本工作流不上传商店。
           - Windows x64 ZIP：解压完整目录后运行 flexbooru.exe；保留 DLL 和 data 目录。
-          - SHA256SUMS 文件：用于校验下载文件。
+          - ZIP 仅包含运行文件及许可证；文件 SHA-256 摘要由 GitHub 提供。
 
           本项目 / This project: https://github.com/YunariCloud/flexbooru-flutter
           原项目 / Upstream: https://github.com/flexbooru/flexbooru
@@ -225,13 +214,21 @@ jobs:
               exit 1
             fi
           fi
+          packages=("dist/flexbooru-flutter-$ARTIFACT_LABEL-android-universal.apk" "dist/flexbooru-flutter-$ARTIFACT_LABEL-windows-x64.zip")
+          for package in "${packages[@]}"; do
+            if [[ ! -s "$package" ]]; then
+              echo "::error::Required release package is missing: $package"
+              exit 1
+            fi
+          done
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release upload "$RELEASE_TAG" "${packages[@]}" --clobber
           else
-            gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" \
+            gh release create "$RELEASE_TAG" "${packages[@]}" --target "$GITHUB_SHA" \
               --title "Flexbooru Flutter $RELEASE_TAG" --draft \
               --prerelease="$PRERELEASE" --generate-notes --notes-file release-notes.md
           fi
+          python3 .github/scripts/release_packages.py clean-release --tag "$RELEASE_TAG" --label "$ARTIFACT_LABEL"
           if [[ "$PRERELEASE" == 'true' ]]; then
             gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
           else
