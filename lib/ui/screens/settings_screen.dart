@@ -9,6 +9,7 @@ import '../../providers/settings_provider.dart';
 import '../../services/tag_translation_service.dart';
 import '../../services/app_update_manager.dart';
 import '../widgets/tag_db_update_dialog.dart';
+import '../widgets/settings_control_tile.dart';
 import '../widgets/theme_color_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'about_screen.dart';
@@ -53,13 +54,15 @@ class SettingsScreen extends StatelessWidget {
             ),
           _buildSectionHeader(context, l10n.appearance),
           // Language selector
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.language),
             title: Text(l10n.language),
             subtitle: Text(_getLanguageName(settingsProv.languageCode, l10n)),
-            trailing: DropdownButton<String>(
+            controlWidth: 180,
+            control: DropdownButton<String>(
               value: settingsProv.languageCode,
               underline: const SizedBox(),
+              isExpanded: true,
               items: [
                 DropdownMenuItem(
                   value: 'system',
@@ -73,13 +76,15 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
           ),
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.brightness_medium),
             title: Text(l10n.themeMode),
             subtitle: Text(_getThemeModeName(settingsProv.themeMode, l10n)),
-            trailing: DropdownButton<ThemeMode>(
+            controlWidth: 180,
+            control: DropdownButton<ThemeMode>(
               value: settingsProv.themeMode,
               underline: const SizedBox(),
+              isExpanded: true,
               items: [
                 DropdownMenuItem(
                   value: ThemeMode.system,
@@ -140,7 +145,7 @@ class SettingsScreen extends StatelessWidget {
 
           const Divider(),
           _buildSectionHeader(context, l10n.layoutDisplay),
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.view_column),
             title: Text(l10n.gridColumns),
             subtitle: Text(
@@ -148,9 +153,11 @@ class SettingsScreen extends StatelessWidget {
                   ? l10n.gridAuto
                   : l10n.gridCount(settingsProv.gridColumns),
             ),
-            trailing: DropdownButton<int>(
+            controlWidth: 180,
+            control: DropdownButton<int>(
               value: settingsProv.gridColumns,
               underline: const SizedBox(),
+              isExpanded: true,
               items: [
                 DropdownMenuItem(value: 0, child: Text(l10n.gridAuto)),
                 DropdownMenuItem(value: 2, child: Text(l10n.gridCount(2))),
@@ -163,13 +170,15 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
           ),
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.high_quality),
             title: Text(l10n.defaultImageQuality),
             subtitle: Text(_getQualityName(settingsProv.imageQuality, l10n)),
-            trailing: DropdownButton<String>(
+            controlWidth: 180,
+            control: DropdownButton<String>(
               value: settingsProv.imageQuality,
               underline: const SizedBox(),
+              isExpanded: true,
               items: [
                 DropdownMenuItem(
                   value: 'preview',
@@ -192,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
 
           const Divider(),
           _buildSectionHeader(context, l10n.tagDatabase),
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.translate),
             title: Text(l10n.tagLanguage),
             subtitle: Text(
@@ -202,9 +211,11 @@ class SettingsScreen extends StatelessWidget {
                 l10n,
               ),
             ),
-            trailing: DropdownButton<String>(
+            controlWidth: 180,
+            control: DropdownButton<String>(
               value: settingsProv.tagLanguage,
               underline: const SizedBox(),
+              isExpanded: true,
               items: [
                 DropdownMenuItem(
                   value: 'system',
@@ -218,7 +229,7 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
           ),
-          ListTile(
+          SettingsControlTile(
             leading: const Icon(Icons.menu_book_outlined),
             title: Text(l10n.tagDatabase),
             subtitle: Text(
@@ -226,7 +237,7 @@ class SettingsScreen extends StatelessWidget {
                   ? '${l10n.tagDbReady} (${l10n.tagDbTotalTags(TagTranslationService().getLoadedTagCount())})'
                   : l10n.tagDbEmbedded,
             ),
-            trailing: OutlinedButton.icon(
+            control: OutlinedButton.icon(
               icon: const Icon(Icons.sync, size: 16),
               label: Text(
                 TagTranslationService().isDatabaseReady
@@ -246,7 +257,7 @@ class SettingsScreen extends StatelessWidget {
             builder: (context, snapshot) {
               final resolvedPath = snapshot.data?.path ?? '';
               final isCustom = settingsProv.downloadPath.isNotEmpty;
-              return ListTile(
+              return SettingsControlTile(
                 leading: const Icon(Icons.folder_outlined),
                 title: Text(l10n.downloadPath),
                 subtitle: Text(
@@ -256,7 +267,7 @@ class SettingsScreen extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Row(
+                control: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (FileDownloader.isSystemPickerSupported)
