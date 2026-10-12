@@ -10,6 +10,7 @@ import '../models/pool.dart';
 import '../models/post.dart';
 import '../models/post_page.dart';
 import '../models/tag.dart';
+import '../models/search_state.dart';
 
 class DanbooruService {
   final Dio _dio;
@@ -41,22 +42,7 @@ class DanbooruService {
     final url = '${site.baseUrl}/posts.json';
 
     // Build tags parameter carefully to avoid Danbooru 422 limit!
-    final tagList = query
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-
-    // Map unindexed timeout-causing order tags on Danbooru to indexed order:rank
-    if (!isE621) {
-      for (int i = 0; i < tagList.length; i++) {
-        if (tagList[i] == 'order:score' ||
-            tagList[i] == 'order:favcount' ||
-            tagList[i] == 'order:upvotes') {
-          tagList[i] = 'order:rank';
-        }
-      }
-    }
+    final tagList = queryTokens(query);
 
     // Check if we should append rating:g server-side
     // Danbooru anonymous allows max 2 tags.

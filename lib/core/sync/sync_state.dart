@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import '../../models/booru_site.dart';
 import '../../models/post.dart';
+import '../../models/search_state.dart';
 
 const sitesPreference = 'flexbooru_sites';
 const favoritesPreference = 'flexbooru_favorites';
@@ -40,6 +41,7 @@ bool isSyncedPreference(String key) =>
       favoritesPreference,
       blacklistPreference,
       historyPreference,
+      searchPreference,
     }.contains(key);
 
 String syncId(String value) => base64UrlEncode(utf8.encode(value));
@@ -241,6 +243,11 @@ class SyncState {
             result['site/$id/$field'] = site[field];
           }
         }
+      } else if (preference == searchPreference) {
+        final record = SearchRecord.fromJson(
+          (item as Map).cast<String, dynamic>(),
+        );
+        result['search/${syncId(record.id)}'] = record.toJson();
       } else if (preference == favoritesPreference) {
         final post = Post.fromJson(
           (item as Map).cast<String, dynamic>(),
@@ -303,6 +310,9 @@ class SyncState {
       }
       return jsonEncode(sites);
     }
+    if (preference == searchPreference) {
+      return jsonEncode(active.map((e) => e.value).toList());
+    }
     if (preference == favoritesPreference) {
       return jsonEncode(active.map((e) => e.value).toList());
     }
@@ -318,6 +328,7 @@ String preferenceForRecord(String key) => switch (key.split('/').first) {
   'favorite' => favoritesPreference,
   'blacklist' => blacklistPreference,
   'history' => historyPreference,
+  'search' => searchPreference,
   _ => throw const FormatException('Unknown sync record'),
 };
 
@@ -359,6 +370,11 @@ void validateSyncValue(String key, Object? value, {bool deleted = false}) {
       'scheme' => value == 'https' || value == 'http',
       _ => value == null || value is String,
     };
+  } else if (parts.first == 'search') {
+    if (value is Map) {
+      final record = SearchRecord.fromJson(value.cast<String, dynamic>());
+      valid = syncId(record.id) == parts[1];
+    }
   } else if (parts.first == 'favorite') {
     if (value is Map) {
       final json = value.cast<String, dynamic>();

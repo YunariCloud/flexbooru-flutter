@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../models/booru_site.dart';
 import '../../models/pool.dart';
-import '../../providers/posts_provider.dart';
+import 'search_screen.dart';
 import '../../services/booru_service.dart';
 
 class PoolsScreen extends StatefulWidget {
@@ -111,14 +110,19 @@ class _PoolsScreenState extends State<PoolsScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 4.0,
+            ),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: l10n.searchPoolHint,
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
@@ -129,7 +133,8 @@ class _PoolsScreenState extends State<PoolsScreen> {
                       )
                     : null,
               ),
-              onSubmitted: (val) => _fetchPools(query: val.trim(), refresh: true),
+              onSubmitted: (val) =>
+                  _fetchPools(query: val.trim(), refresh: true),
             ),
           ),
         ),
@@ -137,66 +142,80 @@ class _PoolsScreenState extends State<PoolsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null && _pools.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-                      const SizedBox(height: 12),
-                      Text('${l10n.failedToLoad}: $_error', textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => _fetchPools(query: _currentQuery, refresh: true),
-                        child: Text(l10n.retry),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.redAccent,
                   ),
-                )
-              : _pools.isEmpty
-                  ? Center(child: Text(l10n.noPoolsFound))
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _pools.length + (_isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _pools.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          );
-                        }
-                        final pool = _pools[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            child: Text('${pool.postCount}'),
-                          ),
-                          title: Text(pool.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(
-                            pool.description.isNotEmpty
-                                ? pool.description
-                                : (pool.creatorName != null ? 'Created by ${pool.creatorName}' : 'Pool #${pool.id}'),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            // View posts in pool
-                            final query = 'pool:${pool.id}';
-                            context.read<PostsProvider>().fetchPosts(
-                              site: widget.site,
-                              query: query,
-                              refresh: true,
-                            );
-                            Navigator.pop(context, true);
-                          },
-                        );
-                      },
+                  const SizedBox(height: 12),
+                  Text(
+                    '${l10n.failedToLoad}: $_error',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () =>
+                        _fetchPools(query: _currentQuery, refresh: true),
+                    child: Text(l10n.retry),
+                  ),
+                ],
+              ),
+            )
+          : _pools.isEmpty
+          ? Center(child: Text(l10n.noPoolsFound))
+          : ListView.builder(
+              controller: _scrollController,
+              itemCount: _pools.length + (_isLoadingMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _pools.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
+                  );
+                }
+                final pool = _pools[index];
+                return ListTile(
+                  leading: CircleAvatar(child: Text('${pool.postCount}')),
+                  title: Text(
+                    pool.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    pool.description.isNotEmpty
+                        ? pool.description
+                        : (pool.creatorName != null
+                              ? 'Created by ${pool.creatorName}'
+                              : 'Pool #${pool.id}'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // View posts in pool
+                    final query = 'pool:${pool.id}';
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SearchScreen(
+                          site: widget.site,
+                          initialQuery: query,
+                          executeInitially: true,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }

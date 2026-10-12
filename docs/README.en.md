@@ -43,12 +43,23 @@ Windows needs the Microsoft Visual C++ 2015–2022 x64 runtime. Uploaded release
 | Feature | Details |
 | --- | --- |
 | Multiple sites | Danbooru/e621, Moebooru (Yande.re, Konachan), Gelbooru/Rule34, Sankaku and Shimmie |
-| Search and filters | Tag suggestions, history, safe mode, global and per-site blacklists |
-| Media viewer | Responsive masonry grid, zoom, quality selection, categorized tags, comments and source links |
+| Search and filters | Per-site drafts, 20 recent queries, named presets, Danbooru quick filters, tag suggestions and blacklists |
+| Media viewer | Independent search pages, step-by-step back navigation, image paging, zoom, fullscreen, quality selection and details |
+| Reverse image search | Google Lens, Bing, Yandex, TinEye, SauceNAO and IQDB; enable, reorder and open all |
 | Favorites and downloads | Favorites metadata, image/video downloads and a local download folder |
 | Personalization | Chinese/English UI, light/dark and AMOLED themes, accent colors and gradients |
 | Live LAN sync | Settings, favorites and site credentials across Windows and Android |
 | In-app updates | Automatic downloads with progress, cancellation and retry |
+
+## Search and image browsing
+
+- **Search memory**: the ordinary search entry restores the site's unfinished query for editing without submitting it. Submitting refreshes the current page. Expand the conditions panel to compare the executed query with the pending draft.
+- **Quick filters**: Danbooru offers eight sorting options, four ratings and four time ranges. Selecting a condition replaces others in its group; selecting it again removes it. Other tags, exclusions and quoted parameters are preserved. Rating shortcuts keep safe mode enabled. e621 and other engines keep free queries and named presets without unsupported shortcuts.
+- **Presets and history**: save, rename, update or delete a named preset. Each site retains 20 complete recent queries; repeating one moves it to the top. Execute, edit, delete or clear history. Existing global history remains under **Legacy history (unclassified)**.
+- **Auto-search**: submission is manual by default. Enable **Auto-search quick filters** to combine rapid filter/preset changes into one request. Typing still only requests tag suggestions.
+- **Back navigation**: tap a detail tag to open an independent results page; hold it for copy and other actions. Back returns one level at a time, preserving the original image, query, list and scroll position.
+- **Paging and fullscreen**: swipe horizontally at normal scale; drag to pan when zoomed in. Reset zoom before swiping again. Windows also supports previous/next buttons and arrow keys. Tap the image to hide toolbars; Back exits fullscreen first. Pages load near the end, failures can be retried, and browsing stops at the last image. Favorites retain their order and each image's own site.
+- **Reverse search**: open the engine panel from the detail toolbar. **Settings → Reverse search engines** enables and reorders engines, retaining at least one. Open one or all enabled engines externally. Sample URLs take priority over previews and originals; videos use static images only. Saved app credentials are not appended. Copy a search link if opening fails.
 
 ## Sites and credentials
 
@@ -73,9 +84,12 @@ Saved legacy Rule34 and Sankaku hosts remain compatible. Authentication errors, 
 | --- | --- |
 | Site configuration, usernames, API keys and tokens | Downloaded images, videos and update packages |
 | Active site, favorites metadata and blacklists | Image caches and the tag database |
-| Last 20 searches, theme, language, safe mode, image quality and other settings | Download folders and device paths |
+| Per-site drafts, named presets, 20 recent queries, engines and auto-search settings | Download folders and device paths |
+| Legacy history, theme, language, safe mode, image quality and other settings | Page lists, scroll positions and the current image index |
 
 Keep Windows running. Android syncs in the foreground, pauses in the background, and reconnects after resume or network recovery to merge offline edits. If the host IP changes, edit it on Android without pairing again.
+
+In v1.3.0, presets/history merge by entry and drafts merge by site, including deletions. Remote changes do not replace the query currently being edited; reopening reads the merged draft. The encrypted connection negotiates support for the new search data. Older peers continue syncing existing data; both peers must upgrade to sync the new features.
 
 <details>
 <summary>Sync behavior and security</summary>
@@ -140,5 +154,7 @@ Android publishing requires Repository Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDR
 ## Attribution and license
 
 Independently maintained by YunariCloud as a Flutter rewrite and API adaptation of [flexbooru/flexbooru](https://github.com/flexbooru/flexbooru). Thanks to the upstream authors and contributors.
+
+Reverse search URL handling and engine configuration interactions reference [quick-reverse-image-search](https://github.com/YunariCloud/quick-reverse-image-search).
 
 Licensed under [GNU GPL-3.0](../LICENSE). iOS, macOS and Linux projects remain in the source; automated releases currently target Android and Windows.

@@ -13,6 +13,7 @@ import '../widgets/theme_color_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'about_screen.dart';
 import 'lan_sync_screen.dart';
+import 'reverse_search_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -26,6 +27,15 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.travel_explore),
+            title: Text(l10n.isZh ? '搜图引擎' : 'Image search engines'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ReverseSearchSettingsScreen(),
+              ),
+            ),
+          ),
           if (!kIsWeb && (Platform.isAndroid || Platform.isWindows))
             ListTile(
               leading: const Icon(Icons.sync),

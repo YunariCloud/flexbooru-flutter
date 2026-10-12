@@ -11,6 +11,7 @@ import '../../core/i18n/app_localizations.dart';
 import '../../core/sync/sync_preferences.dart';
 import '../../core/sync/sync_state.dart';
 import '../../models/booru_site.dart';
+import '../../models/browse_session.dart';
 import '../../providers/blacklist_provider.dart';
 import '../../providers/booru_provider.dart';
 import '../../providers/posts_provider.dart';
@@ -331,14 +332,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.search),
             onPressed: () async {
               if (activeSite != null) {
-                final searched = await Navigator.of(context).push<bool>(
+                await Navigator.of(context).push<void>(
                   MaterialPageRoute(
                     builder: (_) => SearchScreen(site: activeSite),
                   ),
                 );
-                if (searched == true && mounted) {
-                  setState(() => _isPopular = false);
-                }
               }
             },
           ),
@@ -590,7 +588,21 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
         final post = postsProv.posts[index];
-        return PostGridItem(post: post, site: site);
+        return PostGridItem(
+          post: post,
+          site: site,
+          sourceBuilder: () {
+            final popular = _isPopular;
+            final scale = _popularScale;
+            return BrowseSource.posts(
+              postsProv,
+              site,
+              () => popular
+                  ? postsProv.fetchPopular(site: site, scale: scale)
+                  : postsProv.fetchPosts(site: site),
+            );
+          },
+        );
       },
     );
   }

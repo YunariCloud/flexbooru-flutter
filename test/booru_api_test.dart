@@ -384,30 +384,50 @@ void main() {
     );
   });
 
-  test('DanbooruService maps timeout order tags to order:rank', () async {
-    String? requestedTags;
-    final service = DanbooruService(
-      dio: _dio((options) {
-        requestedTags = options.queryParameters['tags']?.toString();
-        return _json([
-          {
-            'id': 1,
-            'image_width': 100,
-            'image_height': 100,
-            'file_url': 'https://cdn.donmai.us/1.jpg',
-            'tag_string': 'solo',
-          }
-        ]);
-      }),
-    );
+  test(
+    'DanbooruService preserves selected sorting and quoted parameters',
+    () async {
+      String? requestedTags;
+      final service = DanbooruService(
+        dio: _dio((options) {
+          requestedTags = options.queryParameters['tags']?.toString();
+          return _json([
+            {
+              'id': 1,
+              'image_width': 100,
+              'image_height': 100,
+              'file_url': 'https://cdn.donmai.us/1.jpg',
+              'tag_string': 'solo',
+            },
+          ]);
+        }),
+      );
 
-    final site = _site('danbooru.donmai.us', BooruType.danbooru);
-    await service.getPosts(site: site, page: 1, limit: 10, query: 'cat order:score');
-    expect(requestedTags, equals('cat order:rank'));
+      final site = _site('danbooru.donmai.us', BooruType.danbooru);
+      await service.getPosts(
+        site: site,
+        page: 1,
+        limit: 10,
+        query: 'cat order:score',
+      );
+      expect(requestedTags, equals('cat order:score'));
 
-    await service.getPosts(site: site, page: 1, limit: 10, query: 'order:favcount');
-    expect(requestedTags, equals('order:rank'));
-  });
+      await service.getPosts(
+        site: site,
+        page: 1,
+        limit: 10,
+        query: 'order:favcount',
+      );
+      expect(requestedTags, equals('order:favcount'));
+      await service.getPosts(
+        site: site,
+        page: 1,
+        limit: 10,
+        query: 'source:"two  spaces" order:score',
+      );
+      expect(requestedTags, equals('source:"two  spaces" order:score'));
+    },
+  );
 
   test('DanbooruService getPopularPosts calls explore endpoint', () async {
     String? requestedPath;
@@ -423,7 +443,7 @@ void main() {
             'image_height': 100,
             'file_url': 'https://cdn.donmai.us/10.jpg',
             'tag_string': 'solo',
-          }
+          },
         ]);
       }),
     );
@@ -452,30 +472,42 @@ void main() {
     expect(requestedPage, equals(3));
   });
 
-  test('DanbooruService getPosts reports error JSON maps as BooruApiException', () async {
-    final service = DanbooruService(
-      dio: _dio((_) => _json({
-        'success': false,
-        'message': 'You cannot search for more than 2 tags.',
-      })),
-    );
+  test(
+    'DanbooruService getPosts reports error JSON maps as BooruApiException',
+    () async {
+      final service = DanbooruService(
+        dio: _dio(
+          (_) => _json({
+            'success': false,
+            'message': 'You cannot search for more than 2 tags.',
+          }),
+        ),
+      );
 
-    final site = _site('danbooru.donmai.us', BooruType.danbooru);
-    expect(
-      () => service.getPosts(site: site, page: 1, limit: 20),
-      throwsA(isA<BooruApiException>()),
-    );
-  });
+      final site = _site('danbooru.donmai.us', BooruType.danbooru);
+      expect(
+        () => service.getPosts(site: site, page: 1, limit: 20),
+        throwsA(isA<BooruApiException>()),
+      );
+    },
+  );
 
-  test('SankakuService gracefully returns empty page when page > 1 without nextKey', () async {
-    final service = SankakuService(
-      dio: _dio((_) => throw StateError('must not call network')),
-    );
+  test(
+    'SankakuService gracefully returns empty page when page > 1 without nextKey',
+    () async {
+      final service = SankakuService(
+        dio: _dio((_) => throw StateError('must not call network')),
+      );
 
-    final site = _site('sankakuapi.com', BooruType.sankaku);
-    final page = await service.getPostPage(site: site, page: 2, limit: 20, nextKey: null);
-    expect(page.posts, isEmpty);
-    expect(page.hasMore, false);
-  });
+      final site = _site('sankakuapi.com', BooruType.sankaku);
+      final page = await service.getPostPage(
+        site: site,
+        page: 2,
+        limit: 20,
+        nextKey: null,
+      );
+      expect(page.posts, isEmpty);
+      expect(page.hasMore, false);
+    },
+  );
 }
-

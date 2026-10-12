@@ -3,18 +3,21 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../models/booru_site.dart';
 import '../../models/post.dart';
+import '../../models/browse_session.dart';
 import '../screens/post_detail_screen.dart';
 
 class PostGridItem extends StatelessWidget {
   final Post post;
   final BooruSite site;
   final VoidCallback? onTap;
+  final BrowseSource Function()? sourceBuilder;
 
   const PostGridItem({
     super.key,
     required this.post,
     required this.site,
     this.onTap,
+    this.sourceBuilder,
   });
 
   @override
@@ -31,13 +34,15 @@ class PostGridItem extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: InkWell(
-        onTap: onTap ??
+        onTap:
+            onTap ??
             () {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => PostDetailScreen(
                     initialPost: post,
                     site: site,
+                    source: sourceBuilder?.call(),
                   ),
                 ),
               );
@@ -48,11 +53,15 @@ class PostGridItem extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               CachedNetworkImage(
-                imageUrl: post.previewUrl.isNotEmpty ? post.previewUrl : post.sampleUrl,
+                imageUrl: post.previewUrl.isNotEmpty
+                    ? post.previewUrl
+                    : post.sampleUrl,
                 httpHeaders: headers,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
                   child: const Center(
                     child: SizedBox(
                       width: 24,
@@ -62,7 +71,9 @@ class PostGridItem extends StatelessWidget {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+                  color: theme.colorScheme.errorContainer.withValues(
+                    alpha: 0.3,
+                  ),
                   child: Center(
                     child: Icon(
                       Icons.broken_image_outlined,
@@ -78,7 +89,10 @@ class PostGridItem extends StatelessWidget {
                 top: 6,
                 left: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: post.ratingColor.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(4),
@@ -100,7 +114,10 @@ class PostGridItem extends StatelessWidget {
                   top: 6,
                   right: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(4),
@@ -133,7 +150,10 @@ class PostGridItem extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
@@ -158,11 +178,18 @@ class PostGridItem extends StatelessWidget {
                       if (post.score != 0)
                         Row(
                           children: [
-                            const Icon(Icons.thumb_up_outlined, color: Colors.white70, size: 11),
+                            const Icon(
+                              Icons.thumb_up_outlined,
+                              color: Colors.white70,
+                              size: 11,
+                            ),
                             const SizedBox(width: 3),
                             Text(
                               '${post.score}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
                             ),
                           ],
                         ),

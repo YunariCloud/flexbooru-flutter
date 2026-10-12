@@ -8,6 +8,7 @@ import '../core/sync/sync_persistence.dart';
 import '../core/sync/sync_preferences.dart';
 import '../core/sync/sync_state.dart';
 import '../models/booru_site.dart';
+import '../models/search_state.dart';
 
 class SyncPairRequest {
   SyncPairRequest._(this.deviceId, this.name, this._link, this._invite);
@@ -22,9 +23,11 @@ class LanSyncService extends ChangeNotifier {
     SyncPersistence? persistence,
     SharedPreferences? preferences,
     this.attachToApp = true,
+    this.supportsSearchState = true,
   }) : _persistence = persistence,
        _preferences = preferences;
   final bool attachToApp;
+  final bool supportsSearchState;
   SyncPersistence? _persistence;
   SharedPreferences? _preferences;
   Future<void>? _initialization;
@@ -122,12 +125,21 @@ class LanSyncService extends ChangeNotifier {
         );
       }
     }
+    if (!_state!.entries.keys.any((key) => key.startsWith('search/')) &&
+        preferences.containsKey(searchPreference)) {
+      _state!.capture(
+        searchPreference,
+        preferences.get(searchPreference),
+        seed: true,
+      );
+    }
     await _save(_state!);
     await _mirror({
       sitesPreference,
       favoritesPreference,
       blacklistPreference,
       historyPreference,
+      searchPreference,
       ...syncedSettings,
     });
     if (attachToApp) {
@@ -138,6 +150,7 @@ class LanSyncService extends ChangeNotifier {
         favoritesPreference,
         blacklistPreference,
         historyPreference,
+        searchPreference,
         ...syncedSettings,
       });
     }
@@ -241,18 +254,31 @@ class LanSyncService extends ChangeNotifier {
     var batch = <dynamic>[];
     var bytes = 0;
     for (final record in records) {
+      if ((record['key'] as String).startsWith('search/') &&
+          (!supportsSearchState || !link.searchSupported)) {
+        continue;
+      }
       final size = utf8.encode(jsonEncode(record)).length;
       if (batch.isNotEmpty &&
           (batch.length >= 100 || bytes + size > 3 * 1024 * 1024)) {
-        await link.send({'type': 'records', 'records': batch});
+        await link.send({
+          'type': 'records',
+          'records': batch,
+          if (supportsSearchState) 'capabilities': ['search_v2'],
+        });
         batch = [];
         bytes = 0;
       }
       batch.add(record);
       bytes += size;
     }
-    if (batch.isNotEmpty) {
-      await link.send({'type': 'records', 'records': batch});
+    if (batch.isNotEmpty || records.isEmpty || !link.capabilitiesSent) {
+      link.capabilitiesSent = true;
+      await link.send({
+        'type': 'records',
+        'records': batch,
+        if (supportsSearchState) 'capabilities': ['search_v2'],
+      });
     }
   }
 
@@ -475,6 +501,9 @@ class LanSyncService extends ChangeNotifier {
             _target!['pairing'] = false;
             await _save(_state!);
           });
+          link.searchSupported =
+              supportsSearchState &&
+              (message['capabilities'] as List? ?? []).contains('search_v2');
           link.authorized = true;
           link.timeout?.cancel();
           status = 'connected';
@@ -486,7 +515,18 @@ class LanSyncService extends ChangeNotifier {
           if (!link.authorized) {
             throw const FormatException('Sync peer not approved');
           }
-          await _merge(message['records'] as List);
+          final gainedSearch =
+              supportsSearchState &&
+              !link.searchSupported &&
+              (message['capabilities'] as List? ?? []).contains('search_v2');
+          if (gainedSearch) link.searchSupported = true;
+          final incoming = message['records'] as List;
+          if (!supportsSearchState &&
+              incoming.any((r) => (r['key'] as String).startsWith('search/'))) {
+            throw const FormatException('Unsupported search records');
+          }
+          await _merge(incoming);
+          if (gainedSearch) await _sendRecords(link, _state!.records);
           lastSync = DateTime.now();
           _notify();
         case 'rejected':
@@ -645,7 +685,12 @@ class LanSyncService extends ChangeNotifier {
     }
     link.authorized = true;
     link.timeout?.cancel();
-    await link.send({'type': 'welcome', 'key': key, 'hostId': deviceId});
+    await link.send({
+      'type': 'welcome',
+      'key': key,
+      'hostId': deviceId,
+      if (supportsSearchState) 'capabilities': ['search_v2'],
+    });
     await _sendRecords(link, _state!.records);
     _notify();
   }
@@ -839,6 +884,8 @@ class _SyncLink {
   String? masterKey;
   SyncCipher? cipher;
   bool authorized = false;
+  bool searchSupported = false;
+  bool capabilitiesSent = false;
   Timer? timeout;
   StreamSubscription<dynamic>? subscription;
   Future<void> _sendTail = Future.value();

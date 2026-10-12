@@ -30,6 +30,7 @@ class PostsProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
   String? get errorMessage => _failure?.describe();
   BooruApiException? get failure => _failure;
+  int get sessionGeneration => _requestGeneration;
   int get currentPage => _currentPage;
   String get currentQuery => _currentQuery;
   bool get safeMode => _safeMode;

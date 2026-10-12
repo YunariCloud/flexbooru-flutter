@@ -2,6 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
+import '../../models/browse_session.dart';
+import '../../core/network/api_client.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../models/post.dart';
 
@@ -11,10 +14,12 @@ class PostImageViewer extends StatefulWidget {
     required this.post,
     required this.quality,
     required this.headers,
+    this.onTap,
   });
   final Post post;
   final String quality;
   final Map<String, String> headers;
+  final VoidCallback? onTap;
 
   @override
   State<PostImageViewer> createState() => _PostImageViewerState();
@@ -40,6 +45,7 @@ class _PostImageViewerState extends State<PostImageViewer> {
       ),
       minScale: PhotoViewComputedScale.contained,
       maxScale: PhotoViewComputedScale.covered * 3.5,
+      onTapUp: (context, details, value) => widget.onTap?.call(),
       loadingBuilder: (context, event) => Center(
         child: SizedBox(
           width: 36,
@@ -73,6 +79,130 @@ class _PostImageViewerState extends State<PostImageViewer> {
       ),
     );
   }
+}
+
+class PostGalleryViewer extends StatefulWidget {
+  const PostGalleryViewer({
+    super.key,
+    required this.source,
+    required this.controller,
+    required this.index,
+    required this.quality,
+    required this.onChanged,
+    required this.onTap,
+  });
+  final BrowseSource source;
+  final PageController controller;
+  final int index;
+  final String quality;
+  final ValueChanged<int> onChanged;
+  final VoidCallback onTap;
+  @override
+  State<PostGalleryViewer> createState() => _PostGalleryViewerState();
+}
+
+class _PostGalleryViewerState extends State<PostGalleryViewer> {
+  bool _zoomed = false;
+  int _retry = 0;
+  final Map<String, PhotoViewScaleStateController> _scales = {};
+  @override
+  void didUpdateWidget(covariant PostGalleryViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index != widget.index ||
+        oldWidget.quality != widget.quality) {
+      _zoomed = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        for (final scale in _scales.values) {
+          scale.scaleState = PhotoViewScaleState.initial;
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _scales.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.source,
+    builder: (context, _) => PhotoViewGallery.builder(
+      key: ValueKey(_retry),
+      pageController: widget.controller,
+      itemCount: widget.source.entries.length,
+      onPageChanged: widget.onChanged,
+      scrollPhysics: _zoomed
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics(),
+      scaleStateChangedCallback: (state) {
+        if (mounted && _zoomed != (state != PhotoViewScaleState.initial)) {
+          setState(() => _zoomed = state != PhotoViewScaleState.initial);
+        }
+      },
+      loadingBuilder: (context, event) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+      builder: (context, index) {
+        final entry = widget.source.entries[index];
+        final post = entry.post;
+        final url = post.isVideo
+            ? (post.previewUrl.isNotEmpty ? post.previewUrl : post.sampleUrl)
+            : switch (widget.quality) {
+                'original' when post.originUrl.isNotEmpty => post.originUrl,
+                'preview' when post.previewUrl.isNotEmpty => post.previewUrl,
+                _ =>
+                  post.sampleUrl.isNotEmpty ? post.sampleUrl : post.originUrl,
+              };
+        final scaleKey = '${entry.identity}:${widget.quality}';
+        return PhotoViewGalleryPageOptions(
+          imageProvider: CachedNetworkImageProvider(
+            url,
+            headers: ApiClient.getImageHeaders(host: entry.site?.host),
+          ),
+          scaleStateController: _scales.putIfAbsent(
+            scaleKey,
+            PhotoViewScaleStateController.new,
+          ),
+          minScale: PhotoViewComputedScale.contained,
+          maxScale: PhotoViewComputedScale.covered * 3.5,
+          initialScale: PhotoViewComputedScale.contained,
+          onTapUp: (context, details, value) => widget.onTap(),
+          errorBuilder: (context, error, stack) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white,
+                  size: 48,
+                ),
+                Text(
+                  context.l10n.failedToLoadFullImage,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await CachedNetworkImage.evictFromCache(url);
+                    if (mounted) {
+                      setState(() {
+                        _retry++;
+                        _zoomed = false;
+                      });
+                    }
+                  },
+                  child: Text(context.l10n.retry),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class DownloadProgressOverlay extends StatelessWidget {

@@ -12,7 +12,9 @@ import '../../models/booru_site.dart';
 import '../../models/post.dart';
 import '../../models/tag.dart';
 import '../../providers/favorites_provider.dart';
-import '../../providers/posts_provider.dart';
+import '../../models/browse_session.dart';
+import '../widgets/reverse_image_search_sheet.dart';
+import 'search_screen.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/booru_service.dart';
 import '../../services/tag_translation_service.dart';
@@ -22,11 +24,16 @@ import '../widgets/post_image_viewer.dart';
 class PostDetailScreen extends StatefulWidget {
   final Post initialPost;
   final BooruSite site;
+  final BrowseSource? source;
+  final Future<String?> Function(Post, BooruSite, void Function(int, int))?
+  downloader;
 
   const PostDetailScreen({
     super.key,
     required this.initialPost,
     required this.site,
+    this.source,
+    this.downloader,
   });
 
   @override
@@ -35,7 +42,26 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   late Post _post;
-  bool _isDownloading = false;
+  bool get _isDownloading =>
+      _downloads.contains('${_post.booruId}:${_post.id}');
+  final Set<String> _downloads = {};
+  bool _fullscreen = false;
+  int _index = 0;
+  late final PageController _pages;
+  BooruSite get _site {
+    if (widget.source == null) return widget.site;
+    return widget.source!.entries[_index].site ??
+        BooruSite(
+          id: _post.booruId,
+          name: context.l10n.isZh ? '已删除的站点' : 'Removed site',
+          host: Uri.tryParse(_post.sampleUrl)?.host ?? '',
+          type: -1,
+        );
+  }
+
+  bool get _siteMissing =>
+      widget.source != null && widget.source!.entries[_index].site == null;
+  final Map<String, double> _downloadValues = {};
   final _downloadProgress = ValueNotifier<double>(0);
   late String _imageQuality;
   String? _tagLanguageOverride;
@@ -44,19 +70,34 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void initState() {
     super.initState();
     _post = widget.initialPost;
+    _index =
+        widget.source?.entries.indexWhere(
+          (e) => e.identity == '${_post.booruId}:${_post.id}',
+        ) ??
+        0;
+    if (_index < 0) _index = 0;
+    _pages = PageController(initialPage: _index);
+    widget.source?.addListener(_galleryChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _prefetch();
+    });
     _imageQuality = context.read<SettingsProvider>().imageQuality;
     _enrichPostTags();
   }
 
   @override
   void dispose() {
+    widget.source?.removeListener(_galleryChanged);
+    widget.source?.dispose();
+    _pages.dispose();
     _downloadProgress.dispose();
     super.dispose();
   }
 
   void _enrichPostTags() async {
+    final identity = '${_post.booruId}:${_post.id}';
     await TagTranslationService().init();
-    if (mounted) {
+    if (mounted && identity == '${_post.booruId}:${_post.id}') {
       final enriched = TagTranslationService().enrichTags(_post.tags);
       setState(() {
         _post = _post.copyWith(tags: enriched);
@@ -67,28 +108,39 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void _downloadImage() async {
     if (_isDownloading) return;
     setState(() {
-      _isDownloading = true;
+      _downloads.add('${_post.booruId}:${_post.id}');
+      _downloadValues['${_post.booruId}:${_post.id}'] = 0;
       _downloadProgress.value = 0;
     });
 
+    final downloadPost = _post;
+    final downloadSite = _site;
+    final downloadIdentity = '${downloadPost.booruId}:${downloadPost.id}';
     final targetUrl = _post.originUrl.isNotEmpty
         ? _post.originUrl
         : _post.sampleUrl;
 
     try {
       final settingsProv = context.read<SettingsProvider>();
-      final savedPath = await FileDownloader.downloadFile(
-        fileUrl: targetUrl,
-        host: widget.site.host,
-        customSavePath: settingsProv.downloadPath.isNotEmpty
-            ? settingsProv.downloadPath
-            : null,
-        onProgress: (received, total) {
-          if (mounted && total > 0) {
+      void progress(int received, int total) {
+        if (mounted && total > 0) {
+          _downloadValues[downloadIdentity] = received / total;
+          if ('${_post.booruId}:${_post.id}' == downloadIdentity) {
             _downloadProgress.value = received / total;
           }
-        },
-      );
+        }
+      }
+
+      final savedPath = widget.downloader != null
+          ? await widget.downloader!(downloadPost, downloadSite, progress)
+          : await FileDownloader.downloadFile(
+              fileUrl: targetUrl,
+              host: downloadSite.host,
+              customSavePath: settingsProv.downloadPath.isNotEmpty
+                  ? settingsProv.downloadPath
+                  : null,
+              onProgress: progress,
+            );
 
       if (mounted) {
         final l10n = context.l10n;
@@ -127,35 +179,89 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isDownloading = false;
+          _downloads.remove(downloadIdentity);
+          _downloadValues.remove(downloadIdentity);
         });
       }
     }
   }
 
   void _sharePost() {
-    final postUrl = '${widget.site.websiteUrl}/posts/${_post.id}';
+    final postUrl = '${_site.websiteUrl}/posts/${_post.id}';
     final imgUrl = _post.originUrl.isNotEmpty
         ? _post.originUrl
         : _post.sampleUrl;
     SharePlus.instance.share(
       ShareParams(
         text:
-            'Check out this artwork (#${_post.id}) on ${widget.site.name}: $imgUrl\n$postUrl',
+            'Check out this artwork (#${_post.id}) on ${_site.name}: $imgUrl\n$postUrl',
       ),
     );
   }
 
-  void _openSauceNao() async {
-    final imgUrl = _post.sampleUrl.isNotEmpty
-        ? _post.sampleUrl
-        : _post.previewUrl;
-    final sauceUrl = Uri.parse(
-      'https://saucenao.com/search.php?url=${Uri.encodeComponent(imgUrl)}',
-    );
-    if (await canLaunchUrl(sauceUrl)) {
-      await launchUrl(sauceUrl, mode: LaunchMode.externalApplication);
+  void _galleryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _prefetch() {
+    final source = widget.source;
+    if (source != null &&
+        _index >= source.entries.length - 3 &&
+        source.error == null) {
+      source.loadNext();
     }
+  }
+
+  void _changeImage(int index) {
+    if (index < 0 || index >= (widget.source?.entries.length ?? 1)) return;
+    setState(() {
+      _index = index;
+      _post = widget.source!.entries[index].post;
+      _downloadProgress.value =
+          _downloadValues['${_post.booruId}:${_post.id}'] ?? 0;
+    });
+    _enrichPostTags();
+    _prefetch();
+  }
+
+  Future<void> _step(int delta) async {
+    final source = widget.source;
+    if (source == null) return;
+    var next = _index + delta;
+    if (next >= source.entries.length && source.hasMore) {
+      await source.loadNext();
+    }
+    if (!mounted) return;
+    if (next >= 0 && next < source.entries.length) {
+      await _pages.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _searchTag(Tag tag) {
+    if (_siteMissing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.isZh ? '原站点已删除，无法搜索' : 'The original site was removed',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(
+          site: _site,
+          initialQuery: tag.name,
+          executeInitially: true,
+          safeMode: widget.source?.safeMode,
+        ),
+      ),
+    );
   }
 
   String _formatAspectRatio(int w, int h) {
@@ -297,13 +403,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   subtitle: Text(tag.name),
                   onTap: () {
                     Navigator.pop(ctx);
-                    Navigator.pop(context); // Close info sheet
-                    Navigator.pop(context); // Close detail screen
-                    context.read<PostsProvider>().fetchPosts(
-                      site: widget.site,
-                      query: tag.name,
-                      refresh: true,
-                    );
+                    _searchTag(tag);
                   },
                 ),
                 ListTile(
@@ -380,7 +480,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             final ratio = _formatAspectRatio(_post.width, _post.height);
             final format = _getFileFormat(_post.sampleUrl, _post.originUrl);
             final sizeText = _formatFileSize(_post.fileSize);
-            final postWebUrl = '${widget.site.websiteUrl}/posts/${_post.id}';
+            final postWebUrl = '${_site.websiteUrl}/posts/${_post.id}';
 
             return DraggableScrollableSheet(
               initialChildSize: 0.65,
@@ -427,7 +527,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              widget.site.name,
+                              _site.name,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -724,7 +824,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       return TagChip(
                                         tag: t,
                                         tagLanguage: effectiveLang,
-                                        onTap: () => _showTagActionsSheet(
+                                        onTap: () => _searchTag(t),
+                                        onLongPress: () => _showTagActionsSheet(
                                           t,
                                           effectiveLang,
                                         ),
@@ -764,10 +865,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           expand: false,
           builder: (context, scrollController) {
             return FutureBuilder(
-              future: BooruService().getComments(
-                site: widget.site,
-                postId: _post.id,
-              ),
+              future: BooruService().getComments(site: _site, postId: _post.id),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -923,111 +1021,219 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final favProv = context.watch<FavoritesProvider>();
-    final isFav = favProv.isFavorite(_post.id, widget.site.id);
-    final headers = ApiClient.getImageHeaders(host: widget.site.host);
+    final isFav = favProv.isFavorite(_post.id, _post.booruId);
+    final headers = ApiClient.getImageHeaders(host: _site.host);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.6),
-        foregroundColor: Colors.white,
-        title: Text(
-          '#${_post.id} (${widget.site.name})',
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          // Original / Sample resolution switcher
-          if (_post.originUrl.isNotEmpty && _post.originUrl != _post.sampleUrl)
-            TextButton(
-              onPressed: () {
-                setState(
-                  () => _imageQuality = _imageQuality == 'original'
-                      ? 'sample'
-                      : 'original',
-                );
+    return PopScope(
+      canPop: !_fullscreen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _fullscreen) setState(() => _fullscreen = false);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: _fullscreen
+            ? null
+            : AppBar(
+                backgroundColor: Colors.black.withValues(alpha: 0.6),
+                foregroundColor: Colors.white,
+                title: Text(
+                  '#${_post.id} (${_site.name})',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                actions: [
+                  // Original / Sample resolution switcher
+                  if (_post.originUrl.isNotEmpty &&
+                      _post.originUrl != _post.sampleUrl)
+                    TextButton(
+                      onPressed: () {
+                        setState(
+                          () => _imageQuality = _imageQuality == 'original'
+                              ? 'sample'
+                              : 'original',
+                        );
+                      },
+                      child: Text(
+                        switch (_imageQuality) {
+                          'original' => l10n.original,
+                          'preview' => l10n.qualityPreview,
+                          _ => l10n.sample,
+                        },
+                        style: TextStyle(
+                          color: _imageQuality == 'original'
+                              ? Colors.amber
+                              : Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: l10n.share,
+                    icon: const Icon(Icons.share),
+                    onPressed: _sharePost,
+                  ),
+                  IconButton(
+                    tooltip: l10n.reverseSearch,
+                    icon: const Icon(Icons.travel_explore),
+                    onPressed: () => showReverseImageSearch(context, _post),
+                  ),
+                ],
+              ),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  _step(1);
+                  return KeyEventResult.handled;
+                }
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  _step(-1);
+                  return KeyEventResult.handled;
+                }
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape &&
+                    _fullscreen) {
+                  setState(() => _fullscreen = false);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
               },
-              child: Text(
-                switch (_imageQuality) {
-                  'original' => l10n.original,
-                  'preview' => l10n.qualityPreview,
-                  _ => l10n.sample,
-                },
-                style: TextStyle(
-                  color: _imageQuality == 'original'
-                      ? Colors.amber
-                      : Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
+              child: widget.source == null
+                  ? PostImageViewer(
+                      post: _post,
+                      quality: _imageQuality,
+                      headers: headers,
+                      onTap: () => setState(() => _fullscreen = !_fullscreen),
+                    )
+                  : PostGalleryViewer(
+                      source: widget.source!,
+                      controller: _pages,
+                      index: _index,
+                      quality: _imageQuality,
+                      onChanged: _changeImage,
+                      onTap: () => setState(() => _fullscreen = !_fullscreen),
+                    ),
             ),
-          IconButton(
-            tooltip: l10n.share,
-            icon: const Icon(Icons.share),
-            onPressed: _sharePost,
-          ),
-          IconButton(
-            tooltip: l10n.reverseSearch,
-            icon: const Icon(Icons.travel_explore),
-            onPressed: _openSauceNao,
-          ),
-        ],
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          PostImageViewer(
-            post: _post,
-            quality: _imageQuality,
-            headers: headers,
-          ),
-          if (_isDownloading)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 70,
-              child: DownloadProgressOverlay(progress: _downloadProgress),
-            ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        color: Colors.black.withValues(alpha: 0.85),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: SafeArea(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                tooltip: l10n.postDetailsTitle(_post.id),
-                icon: const Icon(Icons.info_outline, color: Colors.white),
-                onPressed: _showInfoSheet,
-              ),
-              IconButton(
-                tooltip: l10n.commentsCount(0),
-                icon: const Icon(Icons.comment_outlined, color: Colors.white),
-                onPressed: _showCommentsSheet,
-              ),
-              IconButton(
-                tooltip: isFav ? l10n.removeFavorite : l10n.addFavorite,
-                icon: Icon(
-                  isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? Colors.redAccent : Colors.white,
+            if (widget.source != null && !_fullscreen) ...[
+              Positioned(
+                left: 8,
+                top: MediaQuery.sizeOf(context).height * .35,
+                child: IconButton.filledTonal(
+                  tooltip: context.l10n.isZh ? '上一张' : 'Previous image',
+                  onPressed: _index > 0 ? () => _step(-1) : null,
+                  icon: const Icon(Icons.chevron_left),
                 ),
-                onPressed: () {
-                  favProv.toggleFavorite(_post);
-                },
               ),
-              IconButton(
-                tooltip: l10n.download,
-                icon: Icon(
-                  _isDownloading ? Icons.downloading : Icons.download,
-                  color: Colors.white,
+              Positioned(
+                right: 8,
+                top: MediaQuery.sizeOf(context).height * .35,
+                child: IconButton.filledTonal(
+                  tooltip: context.l10n.isZh ? '下一张' : 'Next image',
+                  onPressed:
+                      _index < widget.source!.entries.length - 1 ||
+                          widget.source!.hasMore
+                      ? () => _step(1)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
                 ),
-                onPressed: _downloadImage,
+              ),
+              Positioned(
+                bottom: 12,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_index + 1} / ${widget.source!.entries.length}${widget.source!.hasMore ? ' +' : ''}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      if (widget.source!.loading)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      if (widget.source!.error != null)
+                        TextButton(
+                          onPressed: () => widget.source!.loadNext(),
+                          child: Text(l10n.retry),
+                        ),
+                      if (_siteMissing)
+                        Text(
+                          l10n.isZh ? '原站点已删除' : 'Original site removed',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
-          ),
+            if (_isDownloading)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 70,
+                child: DownloadProgressOverlay(progress: _downloadProgress),
+              ),
+          ],
         ),
+        bottomNavigationBar: _fullscreen
+            ? null
+            : Container(
+                color: Colors.black.withValues(alpha: 0.85),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: SafeArea(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      IconButton(
+                        tooltip: l10n.postDetailsTitle(_post.id),
+                        icon: const Icon(
+                          Icons.info_outline,
+                          color: Colors.white,
+                        ),
+                        onPressed: _showInfoSheet,
+                      ),
+                      IconButton(
+                        tooltip: l10n.commentsCount(0),
+                        icon: const Icon(
+                          Icons.comment_outlined,
+                          color: Colors.white,
+                        ),
+                        onPressed: _siteMissing ? null : _showCommentsSheet,
+                      ),
+                      IconButton(
+                        tooltip: isFav ? l10n.removeFavorite : l10n.addFavorite,
+                        icon: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: isFav ? Colors.redAccent : Colors.white,
+                        ),
+                        onPressed: () {
+                          favProv.toggleFavorite(_post);
+                        },
+                      ),
+                      IconButton(
+                        tooltip: l10n.download,
+                        icon: Icon(
+                          _isDownloading ? Icons.downloading : Icons.download,
+                          color: Colors.white,
+                        ),
+                        onPressed: _downloadImage,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
