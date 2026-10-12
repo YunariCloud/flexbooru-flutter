@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flexbooru/services/app_update_manager.dart';
+import 'package:flexbooru/services/update_service.dart';
 import 'package:flexbooru/ui/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,33 @@ import 'support/mock_http_adapter.dart';
 import 'app_update_manager_test.dart' show packageResponse, updateInfo;
 
 void main() {
+  testWidgets('failed asset lookup does not claim device incompatibility', (
+    tester,
+  ) async {
+    final manager = AppUpdateManager(platform: 'android');
+    const info = UpdateInfo(
+      currentVersion: '1.2.0',
+      latestVersion: '1.3.0',
+      tagName: 'v1.3.0',
+      title: 'Update',
+      releaseNotes: '',
+      releaseUrl:
+          'https://github.com/YunariCloud/flexbooru-flutter/releases/tag/v1.3.0',
+      hasUpdate: true,
+      assetLookupFailed: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UpdateDialog(updateInfo: info, manager: manager),
+        ),
+      ),
+    );
+    expect(find.textContaining('未能获取更新包列表'), findsOneWidget);
+    expect(find.textContaining('尚无适合本设备'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    manager.dispose();
+  });
   testWidgets(
     'download becomes install action and explains Android permission',
     (tester) async {

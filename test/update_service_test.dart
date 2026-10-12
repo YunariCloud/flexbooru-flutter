@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flexbooru/services/update_service.dart';
@@ -7,6 +8,103 @@ import 'support/mock_http_adapter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('fallback rejects login pages and truncated asset markup', () {
+    for (final markup in [
+      '<html><body><ul></ul></body></html>',
+      '<ul><li>loading',
+    ]) {
+      expect(
+        () => UpdateService.releasePageAssets(markup, 'v1.3.0'),
+        throwsFormatException,
+      );
+    }
+  });
+  for (final platform in ['android', 'windows']) {
+    test(
+      'API rate limit still discovers $platform package from release HTML',
+      () async {
+        final markup = File(
+          'test/fixtures/github_release_assets_v130.html',
+        ).readAsStringSync();
+        final dio = Dio()
+          ..httpClientAdapter = MockHttpAdapter((request) {
+            if (request.uri.host == 'api.github.com') {
+              return jsonResponse({}, status: 403);
+            }
+            if (request.path.contains('/expanded_assets/')) {
+              return ResponseBody.fromString(markup, 200);
+            }
+            return ResponseBody.fromString(
+              '',
+              302,
+              headers: {
+                'location': [
+                  'https://github.com/YunariCloud/flexbooru-flutter/releases/tag/v1.3.0',
+                ],
+              },
+            );
+          });
+        final info = await UpdateService(
+          dio: dio,
+          targetPlatform: platform,
+        ).checkUpdate(currentVersion: '1.2.0');
+        expect(info.hasUpdate, isTrue);
+        expect(info.assetLookupFailed, isFalse);
+        expect(info.downloadUrl, contains('/releases/download/v1.3.0/'));
+        expect(
+          info.assetName,
+          endsWith(platform == 'android' ? 'universal.apk' : 'windows-x64.zip'),
+        );
+        expect(
+          info.assetSha256,
+          platform == 'android'
+              ? '606a19b79fc7dd6ca42e0bba0277637b61f7f6c38f9d33aeb61a6bc0e2d42ca4'
+              : '3689faa77d863ff6e927426a67f24b9a9c29551592631e13efd4604f243b084f',
+        );
+      },
+    );
+  }
+  test(
+    'asset-list network failure is distinct from incompatible package',
+    () async {
+      final dio = Dio()
+        ..httpClientAdapter = MockHttpAdapter((request) {
+          if (request.uri.host == 'api.github.com' ||
+              request.path.contains('/expanded_assets/')) {
+            return jsonResponse({}, status: 403);
+          }
+          return ResponseBody.fromString(
+            '',
+            302,
+            headers: {
+              'location': [
+                'https://github.com/YunariCloud/flexbooru-flutter/releases/tag/v1.3.0',
+              ],
+            },
+          );
+        });
+      final info = await UpdateService(
+        dio: dio,
+        targetPlatform: 'android',
+      ).checkUpdate(currentVersion: '1.2.0');
+      expect(info.hasUpdate, isTrue);
+      expect(info.assetLookupFailed, isTrue);
+      expect(info.downloadUrl, isNull);
+    },
+  );
+  test('HTML fallback rejects foreign assets and scopes checksum by row', () {
+    final digest = 'a' * 64;
+    final rows = UpdateService.releasePageAssets('''<ul>
+      <li><a href="https://example.com/app.apk">app.apk</a></li>
+      <li><a href="/other/repo/releases/download/v1.3.0/app.apk">app.apk</a></li>
+      <li><a href="/YunariCloud/flexbooru-flutter/releases/download/v0.1.0/app.apk">app.apk</a></li>
+      <li><a href="/YunariCloud/flexbooru-flutter/releases/download/v1.3.0/app.apk">app.apk</a>sha256:$digest</li>
+      <li><a href='/YunariCloud/flexbooru-flutter/releases/download/v1.3.0/app.zip'>app.zip</a></li>
+    </ul>''', 'v1.3.0');
+    expect(rows.length, 2);
+    expect(rows[0]['sha256'], digest);
+    expect(rows[1]['sha256'], isNull);
+  });
   test('uses installed package version and build number', () async {
     PackageInfo.setMockInitialValues(
       appName: 'Flexbooru',

@@ -20,6 +20,7 @@ class UpdateInfo {
   final String? checksumUrl;
   final DateTime? publishedAt;
   final bool hasUpdate;
+  final bool assetLookupFailed;
 
   const UpdateInfo({
     required this.currentVersion,
@@ -35,6 +36,7 @@ class UpdateInfo {
     this.checksumUrl,
     this.publishedAt,
     required this.hasUpdate,
+    this.assetLookupFailed = false,
   });
 }
 
@@ -156,6 +158,41 @@ class UpdateService {
           final rawTag = Uri.parse(location).pathSegments.last;
           final latestVer = _releaseVersion(rawTag);
           final hasUpdate = isNewerVersion(latestVer, curVer);
+          Map<String, dynamic>? asset;
+          Map<String, dynamic>? checksums;
+          var lookupFailed = false;
+          try {
+            final assetResponse = await _dio.get<String>(
+              'https://github.com/${AppConstants.githubRepo}/releases/expanded_assets/${Uri.encodeComponent(rawTag)}',
+              options: Options(
+                responseType: ResponseType.plain,
+                headers: {'User-Agent': 'Flexbooru-Flutter-App'},
+              ),
+            );
+            final rows = releasePageAssets(assetResponse.data ?? '', rawTag);
+            final platform =
+                targetPlatform ?? (kIsWeb ? 'web' : Platform.operatingSystem);
+            final compatible =
+                rows
+                    .where((a) => assetScore(a['name'] as String, platform) > 0)
+                    .toList()
+                  ..sort(
+                    (a, b) => assetScore(
+                      b['name'] as String,
+                      platform,
+                    ).compareTo(assetScore(a['name'] as String, platform)),
+                  );
+            asset = compatible.firstOrNull;
+            checksums = rows
+                .where(
+                  (row) =>
+                      (row['name'] as String).toLowerCase() ==
+                      '$platform-sha256sums.txt',
+                )
+                .firstOrNull;
+          } catch (_) {
+            lookupFailed = true;
+          }
           return UpdateInfo(
             currentVersion: curVer,
             latestVersion: latestVer,
@@ -164,6 +201,11 @@ class UpdateService {
             releaseNotes: '',
             releaseUrl: location,
             hasUpdate: hasUpdate,
+            downloadUrl: asset?['browser_download_url'] as String?,
+            assetName: asset?['name'] as String?,
+            assetSha256: asset?['sha256'] as String?,
+            checksumUrl: checksums?['browser_download_url'] as String?,
+            assetLookupFailed: lookupFailed,
           );
         }
       } catch (_) {
@@ -185,6 +227,46 @@ class UpdateService {
     } catch (_) {
       return AppConstants.rawVersion;
     }
+  }
+
+  /// GitHub loads attachments in an HTML fragment. Keep digests scoped to
+  /// individual rows so one file never receives its neighbour's checksum.
+  static List<Map<String, dynamic>> releasePageAssets(String html, String tag) {
+    if (!RegExp(r'<ul\b', caseSensitive: false).hasMatch(html) ||
+        !RegExp(r'</ul\s*>', caseSensitive: false).hasMatch(html) ||
+        RegExp(r'<(?:html|body)\b', caseSensitive: false).hasMatch(html)) {
+      throw const FormatException('Release asset list unavailable');
+    }
+    final assets = <Map<String, dynamic>>[];
+    for (final row in RegExp(
+      r'<li\b[^>]*>([\s\S]*?)</li>',
+      caseSensitive: false,
+    ).allMatches(html)) {
+      final content = row[1]!;
+      for (final link in RegExp(
+        r'''\bhref\s*=\s*["']([^"']+)["']''',
+        caseSensitive: false,
+      ).allMatches(content)) {
+        final url = Uri.parse(
+          'https://github.com',
+        ).resolve(link[1]!.replaceAll('&amp;', '&')).toString();
+        if (!isTrustedAssetUrl(url)) continue;
+        final segments = Uri.parse(url).pathSegments;
+        if (segments.length != 6 || segments[4] != tag) continue;
+        final name = segments.last;
+        if (!RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9._+-]*$').hasMatch(name)) continue;
+        final digest = RegExp(
+          r'sha256:([0-9a-fA-F]{64})(?![0-9a-fA-F])',
+        ).firstMatch(content)?[1];
+        assets.add({
+          'name': name,
+          'browser_download_url': url,
+          if (digest != null) 'sha256': digest.toLowerCase(),
+        });
+        break;
+      }
+    }
+    return assets;
   }
 
   static String _releaseVersion(String tag) {

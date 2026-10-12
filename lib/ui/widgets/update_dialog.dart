@@ -64,7 +64,12 @@ class _UpdateDialogState extends State<UpdateDialog> {
           manager.error == 'integrity'
               ? l10n.updateIntegrityFailed
               : l10n.updateDownloadFailed,
-        _ => compatible ? '' : l10n.noCompatibleUpdate,
+        _ =>
+          compatible
+              ? ''
+              : info.assetLookupFailed
+              ? l10n.updateAssetLookupFailed
+              : l10n.noCompatibleUpdate,
       };
       return AlertDialog(
         title: Text(l10n.newVersionAvailable),

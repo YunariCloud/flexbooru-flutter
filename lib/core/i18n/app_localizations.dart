@@ -284,6 +284,9 @@ class AppLocalizations {
   String get noCompatibleUpdate => isZh
       ? '此版本尚无适合本设备的更新包，可前往发布页查看。'
       : 'No compatible package is available. Check the release page.';
+  String get updateAssetLookupFailed => isZh
+      ? '未能获取更新包列表，请重试检查更新或前往发布页下载。'
+      : 'Could not retrieve update packages. Check again or download from the release page.';
   String get updateCancelled =>
       isZh ? '已取消下载，可随时重试。' : 'Download cancelled. Retry any time.';
   String get allowUpdateInstall => isZh
