@@ -1,8 +1,31 @@
-# Flexbooru Flutter
+<p align="center">
+  <img src="../assets/icons/app_icon.png" alt="Flexbooru app icon" width="120" height="120">
+</p>
 
-A Flutter Booru client for Android and Windows, with browsing, favorites, downloads and live LAN sync.
+<h1 align="center">Flexbooru Flutter</h1>
 
-[简体中文](../README.md) · [Download](https://github.com/YunariCloud/flexbooru-flutter/releases/latest) · [Release notes](https://github.com/YunariCloud/flexbooru-flutter/releases)
+<p align="center">
+  <strong>A Booru client built with Flutter</strong><br>
+  Android · Windows · Media browsing · Live LAN sync
+</p>
+
+<p align="center">
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/releases/latest"><strong>Download</strong></a> ·
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/releases">Release notes</a> ·
+  <a href="../README.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml"><img src="https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml/badge.svg" alt="Build and Release"></a>
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-3F51B5" alt="Android and Windows">
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="GPL-3.0"></a>
+</p>
+
+<p align="center">
+  <a href="#download-and-install">Installation</a> · <a href="#features">Features</a> · <a href="#lan-sync">LAN sync</a> · <a href="#automatic-updates">Updates</a> · <a href="#development">Development</a>
+</p>
+
+---
 
 ## Download and install
 
@@ -17,13 +40,15 @@ Windows needs the Microsoft Visual C++ 2015–2022 x64 runtime. Uploaded release
 
 ## Features
 
-- Danbooru/e621, Moebooru (Yande.re, Konachan), Gelbooru/Rule34, Sankaku and Shimmie support.
-- Tag suggestions, search history, safe mode, global and per-site blacklists.
-- Responsive masonry grid, zoomable images, quality selection, categorized tags, comments and source links.
-- Favorites metadata, image/video downloads and a configurable local download folder.
-- Chinese/English UI, light/dark and AMOLED themes, accent colors and gradients.
-- Windows–Android LAN sync, including site credentials.
-- In-app update checks and automatic downloads with progress, cancellation and retry.
+| Feature | Details |
+| --- | --- |
+| Multiple sites | Danbooru/e621, Moebooru (Yande.re, Konachan), Gelbooru/Rule34, Sankaku and Shimmie |
+| Search and filters | Tag suggestions, history, safe mode, global and per-site blacklists |
+| Media viewer | Responsive masonry grid, zoom, quality selection, categorized tags, comments and source links |
+| Favorites and downloads | Favorites metadata, image/video downloads and a local download folder |
+| Personalization | Chinese/English UI, light/dark and AMOLED themes, accent colors and gradients |
+| Live LAN sync | Settings, favorites and site credentials across Windows and Android |
+| In-app updates | Automatic downloads with progress, cancellation and retry |
 
 ## Sites and credentials
 
@@ -37,7 +62,7 @@ Add or edit sites in **Manage Boorus**. Configure safe mode, image quality and t
 
 Saved legacy Rule34 and Sankaku hosts remain compatible. Authentication errors, site protection, timeouts and legitimate empty results have separate messages. Custom User-Agent settings apply to API and image requests.
 
-## Windows–Android LAN sync
+## LAN sync
 
 1. Connect both devices to the same LAN.
 2. On Windows, open **Settings → LAN sync**, enable the host and select its real LAN IP.
@@ -52,7 +77,12 @@ Saved legacy Rule34 and Sankaku hosts remain compatible. Authentication errors, 
 
 Keep Windows running. Android syncs in the foreground, pauses in the background, and reconnects after resume or network recovery to merge offline edits. If the host IP changes, edit it on Android without pairing again.
 
+<details>
+<summary>Sync behavior and security</summary>
+
 AES-256-GCM encrypts traffic and the local journal. Keys use Android Keystore / Windows secure storage. Pairing codes expire after five minutes and require host approval. Revoke devices from the Windows sync page. Field conflicts resolve by version order; usernames/tokens update together and deletions retain sync markers.
+
+</details>
 
 ### Connection troubleshooting
 
@@ -90,7 +120,8 @@ flutter build windows --release
 
 APK output: `build/app/outputs/flutter-apk/app-release.apk`. Windows runtime: `build/windows/x64/runner/Release/`. Distribute the complete runtime files.
 
-## GitHub Actions
+<details>
+<summary>GitHub Actions and release signing</summary>
 
 See [.github/workflows/build-release.yml](../.github/workflows/build-release.yml). Analysis and tests run before both platform builds.
 
@@ -101,6 +132,10 @@ See [.github/workflows/build-release.yml](../.github/workflows/build-release.yml
 | Manual dispatch | Build by default; set `publish` and `tag` to publish. Existing tags must point to the selected commit |
 
 Android publishing requires Repository Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`. Keep the signing key consistent so existing installations can upgrade.
+
+</details>
+
+---
 
 ## Attribution and license
 

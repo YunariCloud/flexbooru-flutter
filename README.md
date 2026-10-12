@@ -1,11 +1,31 @@
-# Flexbooru Flutter
+<p align="center">
+  <img src="assets/icons/app_icon.png" alt="Flexbooru 软件图标" width="120" height="120">
+</p>
 
-基于 Flutter 的 Booru 客户端，支持 Android 与 Windows，提供作品浏览、收藏、下载和局域网实时同步。
+<h1 align="center">Flexbooru Flutter</h1>
 
-[English](docs/README.en.md) · [下载最新版](https://github.com/YunariCloud/flexbooru-flutter/releases/latest) · [更新记录](https://github.com/YunariCloud/flexbooru-flutter/releases)
+<p align="center">
+  <strong>基于 Flutter 的 Booru 客户端</strong><br>
+  Android · Windows · 作品浏览 · 局域网实时同步
+</p>
 
-[![Build and Release](https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml/badge.svg)](https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/releases/latest"><strong>下载最新版</strong></a> ·
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/releases">更新记录</a> ·
+  <a href="docs/README.en.md">English</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml"><img src="https://github.com/YunariCloud/flexbooru-flutter/actions/workflows/build-release.yml/badge.svg" alt="Build and Release"></a>
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-3F51B5" alt="Android and Windows">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="GPL-3.0"></a>
+</p>
+
+<p align="center">
+  <a href="#下载与安装">下载与安装</a> · <a href="#主要功能">主要功能</a> · <a href="#局域网实时同步">实时同步</a> · <a href="#自动下载更新">自动更新</a> · <a href="#开发与构建">开发构建</a>
+</p>
+
+---
 
 ## 下载与安装
 
@@ -20,13 +40,15 @@ Windows 需要 Microsoft Visual C++ 2015–2022 x64 运行库。发布附件仅�
 
 ## 主要功能
 
-- **多站点浏览**：支持 Danbooru/e621、Moebooru（Yande.re、Konachan）、Gelbooru/Rule34、Sankaku 和 Shimmie。
-- **搜索与过滤**：标签联想、搜索历史、安全模式、全局与站点黑名单。
-- **作品查看**：响应式瀑布流、图片缩放、图片质量切换、标签分类、评论和来源链接。
-- **收藏与下载**：收藏作品信息，下载图片和视频，自定义本机下载目录。
-- **界面定制**：中文/英文、明暗主题、AMOLED 黑色主题、强调色与渐变色。
-- **跨端同步**：同一局域网内同步设置、收藏及站点登录信息。
-- **应用内更新**：检查新版本、自动下载更新包、显示进度，支持取消和重试。
+| 功能 | 说明 |
+| --- | --- |
+| 多站点浏览 | Danbooru/e621、Moebooru（Yande.re、Konachan）、Gelbooru/Rule34、Sankaku、Shimmie |
+| 搜索与过滤 | 标签联想、搜索历史、安全模式、全局与站点黑名单 |
+| 作品查看 | 响应式瀑布流、图片缩放与质量切换、分类标签、评论和来源链接 |
+| 收藏与下载 | 收藏作品信息，下载图片和视频，自定义本机下载目录 |
+| 界面定制 | 中文/英文、明暗主题、AMOLED 黑色主题、强调色与渐变色 |
+| 跨端同步 | 同一局域网内实时同步设置、收藏及站点登录信息 |
+| 应用内更新 | 检查新版本，自动下载更新包，查看进度、取消和重试 |
 
 ## 站点与登录信息
 
@@ -40,7 +62,7 @@ Windows 需要 Microsoft Visual C++ 2015–2022 x64 运行库。发布附件仅�
 
 客户端兼容旧保存的 Rule34 / Sankaku 域名，并区分认证失败、站点防护、超时与合法空结果。自定义 User-Agent 会用于 API 和图片请求。
 
-## Windows ↔ Android 实时同步
+## 局域网实时同步
 
 1. 两台设备连接同一局域网。
 2. Windows 打开「设置 → 局域网同步」，开启同步主机，选择手机能访问的实际局域网 IP。
@@ -55,7 +77,12 @@ Windows 需要 Microsoft Visual C++ 2015–2022 x64 运行库。发布附件仅�
 
 Windows 主机需要保持运行。Android 在前台实时同步，进入后台暂停连接，回到前台或恢复网络时自动重连并合并离线修改。主机 IP 改变后，在手机同步页修改地址即可，无需重新配对。
 
+<details>
+<summary>同步机制与安全</summary>
+
 传输和本地同步日志使用 AES-256-GCM 加密，密钥由 Android Keystore / Windows 安全存储保护。配对码 5 分钟内有效，首次连接需主机确认；Windows 同步页可撤销设备授权。同一字段发生冲突时按版本顺序合并，用户名与 Token 作为一组更新，删除会保留同步标记。
+
+</details>
 
 ### 无法连接主机时
 
@@ -93,7 +120,8 @@ flutter build windows --release
 
 APK 位于 `build/app/outputs/flutter-apk/app-release.apk`。Windows 运行目录为 `build/windows/x64/runner/Release/`，分发时必须保留完整运行文件。
 
-### GitHub Actions
+<details>
+<summary>GitHub Actions 与发布签名配置</summary>
 
 配置见 [.github/workflows/build-release.yml](.github/workflows/build-release.yml)。分析与测试通过后才构建两端安装包。
 
@@ -104,6 +132,10 @@ APK 位于 `build/app/outputs/flutter-apk/app-release.apk`。Windows 运行目�
 | 手动运行工作流 | 默认只构建；开启 `publish` 并填写 `tag` 可发布，已有标签需指向当前提交 |
 
 Android 发布需配置四个 Repository Secrets：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_PASSWORD`、`ANDROID_KEY_ALIAS`。发布版本必须使用固定签名密钥，才能覆盖升级。
+
+</details>
+
+---
 
 ## 来源与许可证
 
