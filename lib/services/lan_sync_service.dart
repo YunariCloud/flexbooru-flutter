@@ -57,6 +57,7 @@ class LanSyncService extends ChangeNotifier {
   int _generation = 0;
   int _retrySeconds = 2;
   Future<bool> Function(String, Object?, Object?)? _appHook;
+  final changes = StreamController<void>.broadcast();
 
   String get deviceId => _state?.device ?? '';
   bool get isHosting => _server != null;
@@ -100,7 +101,7 @@ class LanSyncService extends ChangeNotifier {
     final saved = await _persistence!.load();
     _state = SyncState(saved?['device'] as String? ?? randomSyncKey());
     if (saved != null) {
-      _state!.merge(saved['records'] as List);
+      _state!.merge(saved['records'] as List, snapshot: true);
       deviceName = saved['name'] as String;
       mode = saved['mode'] as String;
       port = saved['port'] as int;
@@ -115,7 +116,28 @@ class LanSyncService extends ChangeNotifier {
     final preferences = _preferences!;
     if (saved == null) {
       for (final key in preferences.getKeys().where(isSyncedPreference)) {
-        _state!.capture(key, preferences.get(key), seed: true);
+        var value = preferences.get(key);
+        if (key == searchPreference && value is String) {
+          var invalid = 0;
+          final recovered = SearchRecord.decode(
+            value,
+            tolerant: true,
+            onInvalid: () => invalid++,
+          );
+          if (invalid > 0) {
+            if (!preferences.containsKey(
+              '${searchPreference}_recovery_backup',
+            )) {
+              await preferences.setString(
+                '${searchPreference}_recovery_backup',
+                value,
+              );
+            }
+            value = jsonEncode(recovered.map((r) => r.toJson()).toList());
+            await preferences.setString(searchPreference, value);
+          }
+        }
+        _state!.capture(key, value, seed: true);
       }
       if (!preferences.containsKey(sitesPreference)) {
         _state!.capture(
@@ -129,7 +151,12 @@ class LanSyncService extends ChangeNotifier {
         preferences.containsKey(searchPreference)) {
       _state!.capture(
         searchPreference,
-        preferences.get(searchPreference),
+        jsonEncode(
+          SearchRecord.decode(
+            preferences.getString(searchPreference),
+            tolerant: true,
+          ).map((r) => r.toJson()).toList(),
+        ),
         seed: true,
       );
     }
@@ -205,14 +232,11 @@ class LanSyncService extends ChangeNotifier {
     if (!isSyncedPreference(key)) return false;
     await initialize();
     return _serial(() async {
-      final next = SyncState(deviceId)..merge(_state!.records);
+      final next = _state!.copy();
       if (!next.capture(key, value, previousValue: previousValue)) return true;
-      final delta = next.records
-          .where(
-            (record) =>
-                jsonEncode(_state!.entries[record['key']]?.toJson()) !=
-                jsonEncode(record),
-          )
+      final delta = next.entries.values
+          .where((entry) => !identical(_state!.entries[entry.key], entry))
+          .map((entry) => entry.toJson())
           .toList();
       await _save(next);
       _state = next;
@@ -223,22 +247,35 @@ class LanSyncService extends ChangeNotifier {
         SyncPreferences.remoteChanges.add({key});
       }
       await _broadcast(delta);
+      if (!_disposed) changes.add(null);
       return true;
     });
   }
 
-  Future<void> _merge(List<dynamic> records) => _serial(() async {
-    final next = SyncState(deviceId)..merge(_state!.records);
-    final changed = next.merge(records);
-    if (changed.isEmpty) return;
-    await _save(next);
-    _state = next;
-    await _mirror(changed);
-    lastSync = DateTime.now();
-    if (attachToApp) SyncPreferences.remoteChanges.add(changed);
-    _notify();
-    await _broadcast(records);
-  });
+  Future<void> _merge(List<dynamic> records, {bool snapshot = false}) =>
+      _serial(() async {
+        final next = _state!.copy();
+        final changed = next.merge(records, snapshot: snapshot);
+        if (changed.isEmpty) return;
+        final accepted = records.where((record) {
+          final current = _state!.entries[record['key']];
+          return current == null ||
+              next.entries[record['key']]!.newerThan(current);
+        }).toList();
+        await _save(next);
+        _state = next;
+        await _mirror(changed);
+        lastSync = DateTime.now();
+        if (attachToApp) SyncPreferences.remoteChanges.add(changed);
+        _notify();
+        await _broadcast(accepted);
+        if (!_disposed) changes.add(null);
+      });
+
+  Future<void> mergeCloudRecords(List<dynamic> records) async {
+    await initialize();
+    await _merge(records, snapshot: true);
+  }
 
   Future<void> _broadcast(List<dynamic> records) async {
     for (final link in _links.toList().where((link) => link.authorized)) {

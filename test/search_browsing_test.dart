@@ -139,7 +139,7 @@ void main() {
         'remote',
       );
       await tester.enterText(find.byType(TextField), 'editing');
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 600));
       await flush(tester);
       final update = store.saveDraft(site.id, 'new remote');
       await flush(tester);

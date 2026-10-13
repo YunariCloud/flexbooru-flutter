@@ -31,11 +31,13 @@ class _PostImageViewerState extends State<PostImageViewer> {
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
-    final imageUrl = switch (widget.quality) {
-      'original' when post.originUrl.isNotEmpty => post.originUrl,
-      'preview' when post.previewUrl.isNotEmpty => post.previewUrl,
-      _ => post.sampleUrl.isNotEmpty ? post.sampleUrl : post.originUrl,
-    };
+    final imageUrl = post.isVideo
+        ? (post.previewUrl.isNotEmpty ? post.previewUrl : post.sampleUrl)
+        : switch (widget.quality) {
+            'original' when post.originUrl.isNotEmpty => post.originUrl,
+            'preview' when post.previewUrl.isNotEmpty => post.previewUrl,
+            _ => post.sampleUrl.isNotEmpty ? post.sampleUrl : post.originUrl,
+          };
     final l10n = context.l10n;
     return PhotoView(
       key: ValueKey((imageUrl, _retry)),
@@ -90,6 +92,7 @@ class PostGalleryViewer extends StatefulWidget {
     required this.quality,
     required this.onChanged,
     required this.onTap,
+    this.evictImage,
   });
   final BrowseSource source;
   final PageController controller;
@@ -97,14 +100,15 @@ class PostGalleryViewer extends StatefulWidget {
   final String quality;
   final ValueChanged<int> onChanged;
   final VoidCallback onTap;
+  final Future<void> Function(String, String?)? evictImage;
   @override
   State<PostGalleryViewer> createState() => _PostGalleryViewerState();
 }
 
 class _PostGalleryViewerState extends State<PostGalleryViewer> {
   bool _zoomed = false;
-  int _retry = 0;
-  final Map<String, PhotoViewScaleStateController> _scales = {};
+  final Map<int, int> _retries = {};
+  final Map<int, PhotoViewScaleStateController> _scales = {};
   @override
   void didUpdateWidget(covariant PostGalleryViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -113,8 +117,13 @@ class _PostGalleryViewerState extends State<PostGalleryViewer> {
       _zoomed = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        for (final scale in _scales.values) {
-          scale.scaleState = PhotoViewScaleState.initial;
+        for (final index in _scales.keys.toList()) {
+          if ((index - widget.index).abs() > 2) {
+            _scales.remove(index)!.dispose();
+            _retries.remove(index);
+          } else {
+            _scales[index]!.scaleState = PhotoViewScaleState.initial;
+          }
         }
       });
     }
@@ -132,7 +141,6 @@ class _PostGalleryViewerState extends State<PostGalleryViewer> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.source,
     builder: (context, _) => PhotoViewGallery.builder(
-      key: ValueKey(_retry),
       pageController: widget.controller,
       itemCount: widget.source.entries.length,
       onPageChanged: widget.onChanged,
@@ -157,14 +165,16 @@ class _PostGalleryViewerState extends State<PostGalleryViewer> {
                 _ =>
                   post.sampleUrl.isNotEmpty ? post.sampleUrl : post.originUrl,
               };
-        final scaleKey = '${entry.identity}:${widget.quality}';
+        final retry = _retries[index] ?? 0;
+        final cacheKey = retry == 0 ? null : '$url#flexbooru-retry-$retry';
         return PhotoViewGalleryPageOptions(
           imageProvider: CachedNetworkImageProvider(
             url,
+            cacheKey: cacheKey,
             headers: ApiClient.getImageHeaders(host: entry.site?.host),
           ),
           scaleStateController: _scales.putIfAbsent(
-            scaleKey,
+            index,
             PhotoViewScaleStateController.new,
           ),
           minScale: PhotoViewComputedScale.contained,
@@ -186,10 +196,17 @@ class _PostGalleryViewerState extends State<PostGalleryViewer> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    await CachedNetworkImage.evictFromCache(url);
+                    if (widget.evictImage != null) {
+                      await widget.evictImage!(url, cacheKey);
+                    } else {
+                      await CachedNetworkImage.evictFromCache(
+                        url,
+                        cacheKey: cacheKey,
+                      );
+                    }
                     if (mounted) {
                       setState(() {
-                        _retry++;
+                        _retries[index] = retry + 1;
                         _zoomed = false;
                       });
                     }

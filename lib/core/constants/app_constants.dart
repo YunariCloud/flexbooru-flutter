@@ -92,7 +92,7 @@ class TagCategory {
 class AppConstants {
   static const String appName = 'Flexbooru';
   static const String rawVersion =
-      String.fromEnvironment('APP_VERSION', defaultValue: '1.3.1');
+      String.fromEnvironment('APP_VERSION', defaultValue: '1.4.0');
   static const String appVersion =
       '$rawVersion (Flutter Edition)';
   static const String githubRepo = 'YunariCloud/flexbooru-flutter';

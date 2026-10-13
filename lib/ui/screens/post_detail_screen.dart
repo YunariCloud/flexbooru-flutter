@@ -136,6 +136,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           : await FileDownloader.downloadFile(
               fileUrl: targetUrl,
               host: downloadSite.host,
+              siteId: downloadPost.booruId,
+              postId: downloadPost.id,
               customSavePath: settingsProv.downloadPath.isNotEmpty
                   ? settingsProv.downloadPath
                   : null,

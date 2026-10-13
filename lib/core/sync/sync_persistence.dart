@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'sync_crypto.dart';
+import 'sync_record_codec.dart';
 
 abstract class SyncPersistence {
   Future<Map<String, dynamic>?> load();
@@ -48,15 +50,18 @@ class EncryptedSyncPersistence implements SyncPersistence {
     final key = await _getKey();
     final stored = preferences.getString(journalKey);
     if (stored == null) return null;
-    return openSyncData(
-      (jsonDecode(stored) as Map).cast<String, dynamic>(),
-      key,
+    return unpackSyncJournal(
+      await openSyncData(
+        (jsonDecode(stored) as Map).cast<String, dynamic>(),
+        key,
+      ),
     );
   }
 
   @override
   Future<void> save(Map<String, dynamic> data) async {
-    final encrypted = await sealSyncData(data, await _getKey());
+    final packed = await Isolate.run(() => packSyncJournal(data));
+    final encrypted = await sealSyncData(packed, await _getKey());
     if (!await preferences.setString(journalKey, jsonEncode(encrypted))) {
       throw StateError('Unable to save sync journal');
     }

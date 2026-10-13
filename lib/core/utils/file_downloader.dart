@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
@@ -99,8 +100,9 @@ class FileDownloader {
         if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
           final downloads = await getDownloadsDirectory();
           if (downloads != null) {
-            final picturesDir =
-                Directory('${downloads.parent.path}/Pictures/Flexbooru');
+            final picturesDir = Directory(
+              '${downloads.parent.path}/Pictures/Flexbooru',
+            );
             presets['pictures'] = picturesDir.path;
           }
         } else if (Platform.isAndroid) {
@@ -134,7 +136,8 @@ class FileDownloader {
         final initial = (initialPath != null && initialPath.trim().isNotEmpty)
             ? initialPath.trim().replaceAll("'", "''")
             : '';
-        final script = '''
+        final script =
+            '''
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Windows.Forms
 \$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -151,20 +154,16 @@ if (\$result -eq [System.Windows.Forms.DialogResult]::OK) {
     [Console]::Write(\$dialog.SelectedPath)
 }
 ''';
-        final result = await Process.run(
-          'powershell',
-          [
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-WindowStyle',
-            'Hidden',
-            '-STA',
-            '-Command',
-            script,
-          ],
-          stdoutEncoding: utf8,
-        );
+        final result = await Process.run('powershell', [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-WindowStyle',
+          'Hidden',
+          '-STA',
+          '-Command',
+          script,
+        ], stdoutEncoding: utf8);
         final selected = result.stdout.toString().trim();
         if (selected.isNotEmpty) {
           final dir = Directory(selected);
@@ -176,11 +175,10 @@ if (\$result -eq [System.Windows.Forms.DialogResult]::OK) {
       } else if (Platform.isMacOS) {
         final script =
             'POSIX path of (choose folder with prompt "Select Flexbooru Download Folder")';
-        final result = await Process.run(
-          'osascript',
-          ['-e', script],
-          stdoutEncoding: utf8,
-        );
+        final result = await Process.run('osascript', [
+          '-e',
+          script,
+        ], stdoutEncoding: utf8);
         final selected = result.stdout.toString().trim();
         if (selected.isNotEmpty) {
           final dir = Directory(selected);
@@ -192,22 +190,17 @@ if (\$result -eq [System.Windows.Forms.DialogResult]::OK) {
       } else if (Platform.isLinux) {
         ProcessResult? result;
         try {
-          result = await Process.run(
-            'zenity',
-            [
-              '--file-selection',
-              '--directory',
-              '--title=Select Flexbooru Download Folder',
-            ],
-            stdoutEncoding: utf8,
-          );
+          result = await Process.run('zenity', [
+            '--file-selection',
+            '--directory',
+            '--title=Select Flexbooru Download Folder',
+          ], stdoutEncoding: utf8);
         } catch (_) {
           try {
-            result = await Process.run(
-              'kdialog',
-              ['--getexistingdirectory', initialPath ?? ''],
-              stdoutEncoding: utf8,
-            );
+            result = await Process.run('kdialog', [
+              '--getexistingdirectory',
+              initialPath ?? '',
+            ], stdoutEncoding: utf8);
           } catch (_) {}
         }
         if (result != null) {
@@ -254,26 +247,84 @@ if (\$result -eq [System.Windows.Forms.DialogResult]::OK) {
     String? customFileName,
     String? customSavePath,
     void Function(int received, int total)? onProgress,
+    String? siteId,
+    Object? postId,
+    CancelToken? cancelToken,
+    Dio? client,
   }) async {
+    File? partial;
+    File? reservation;
     try {
-      final fileName = customFileName ?? UrlUtil.getFileName(fileUrl);
+      String safe(String value) => value
+          .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')
+          .replaceAll(RegExp(r'^\.+'), '_');
+      final rawName =
+          customFileName ??
+          (siteId != null && postId != null
+              ? '${safe(siteId)}-${safe(postId.toString())}.${UrlUtil.getFileExtension(fileUrl)}'
+              : UrlUtil.getFileName(fileUrl));
+      final fileName = safe(rawName);
       final saveDir = await resolveDownloadDirectory(customSavePath);
 
-      final filePath = '${saveDir.path}/$fileName';
-      final file = File(filePath);
+      final dot = fileName.lastIndexOf('.');
+      final stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+      final extension = dot > 0 ? fileName.substring(dot) : '';
+      var number = 0;
+      late File file;
+      while (true) {
+        file = File(
+          '${saveDir.path}/$stem${number == 0 ? '' : '-$number'}$extension',
+        );
+        final lock = File('${file.path}.download-lock');
+        if (await file.exists()) {
+          number++;
+          continue;
+        }
+        try {
+          await lock.create(exclusive: true);
+          reservation = lock;
+          if (await file.exists()) {
+            await lock.delete();
+            reservation = null;
+            number++;
+            continue;
+          }
+          break;
+        } on FileSystemException {
+          if (!await lock.exists()) rethrow;
+          number++;
+        }
+        if (number > 10000) {
+          throw const FileSystemException('Unable to reserve download name');
+        }
+      }
+      partial = File(
+        '${file.path}.${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}.part',
+      );
 
       final headers = ApiClient.getImageHeaders(host: host);
 
-      await _dio.download(
+      await (client ?? _dio).download(
         fileUrl,
-        filePath,
+        partial.path,
         options: Options(headers: headers),
         onReceiveProgress: onProgress,
+        cancelToken: cancelToken,
       );
-
+      if (cancelToken?.isCancelled == true) {
+        throw StateError('Download cancelled');
+      }
+      if (!await partial.exists() || await partial.length() == 0) {
+        throw const FormatException('Empty download');
+      }
+      await partial.rename(file.path);
+      partial = null;
       return file.path;
-    } catch (e) {
-      rethrow;
+    } finally {
+      if (partial != null && await partial.exists()) await partial.delete();
+      if (reservation != null && await reservation.exists()) {
+        await reservation.delete();
+      }
     }
   }
 }

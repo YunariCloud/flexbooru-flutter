@@ -95,11 +95,14 @@ class SyncState {
   final String device;
   final Map<String, SyncEntry> entries = {};
   int clock = 0;
+  SyncState copy() => SyncState(device)
+    ..entries.addAll(entries)
+    ..clock = clock;
   List<Map<String, dynamic>> get records =>
       entries.values.map((entry) => entry.toJson()).toList();
 
-  Set<String> merge(List<dynamic> records) {
-    if (records.length > 50000) {
+  Set<String> merge(List<dynamic> records, {bool snapshot = false}) {
+    if (records.length > (snapshot ? 500000 : 50000)) {
       throw const FormatException('Too many sync records');
     }
     // Validate the entire message before changing local state.

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
@@ -160,7 +161,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_ready) {
       final query = _controller.text;
       _draftTimer = Timer(
-        const Duration(milliseconds: 200),
+        const Duration(milliseconds: 600),
         () => unawaited(_saveDraft(query)),
       );
     }
@@ -234,8 +235,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _suggestions = [];
       _isLoadingSuggestions = false;
     });
-    unawaited(_saveDraft(query));
-    unawaited(_store.addHistory(widget.site.id, query));
+    unawaited(_saveExecuted(query));
     if (_scroll.hasClients) _scroll.jumpTo(0);
     unawaited(
       _posts.fetchPosts(site: widget.site, query: query, refresh: true),
@@ -248,6 +248,26 @@ class _SearchScreenState extends State<SearchScreen> {
         !_posts.isLoadingMore &&
         _posts.hasMore) {
       await _posts.fetchPosts(site: widget.site);
+    }
+  }
+
+  Future<void> _saveExecuted(String query) async {
+    try {
+      await _store.recordSearch(widget.site.id, query);
+      if (mounted && _controller.text == query) _dirty = false;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t(
+                '搜索记录保存失败，请重试。',
+                'Could not save search records. Please retry.',
+              ),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -377,7 +397,11 @@ class _SearchScreenState extends State<SearchScreen> {
             (preset) => ListTile(
               dense: true,
               leading: const Icon(Icons.bookmark_outline),
-              title: Text(preset.name),
+              title: Text(
+                preset.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
                 preset.query,
                 maxLines: 2,
@@ -416,7 +440,7 @@ class _SearchScreenState extends State<SearchScreen> {
       ..._suggestions.map(
         (tag) => ListTile(
           dense: true,
-          title: Text(tag.name),
+          title: Text(tag.name, maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: Text('${tag.categoryName} · ${tag.count}'),
           onTap: () => _addTag(tag.name),
           trailing: IconButton(
@@ -432,7 +456,11 @@ class _SearchScreenState extends State<SearchScreen> {
     return Column(
       children: [
         ListTile(
-          title: Text('${context.l10n.searchHistory} · ${widget.site.name}'),
+          title: Text(
+            '${context.l10n.searchHistory} · ${widget.site.name}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           trailing: TextButton(
             onPressed: () => _store.clearHistory(widget.site.id),
             child: Text(context.l10n.clearHistory),
@@ -446,7 +474,11 @@ class _SearchScreenState extends State<SearchScreen> {
         ...history.map(
           (entry) => ListTile(
             leading: const Icon(Icons.history),
-            title: Text(entry.query),
+            title: Text(
+              entry.query,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             onTap: () => _executeSearch(entry.query),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -467,7 +499,11 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         if (_store.legacyHistory.isNotEmpty) ...[
           ListTile(
-            title: Text(t('旧版历史（未分类）', 'Legacy history (unclassified)')),
+            title: Text(
+              t('旧版历史（未分类）', 'Legacy history (unclassified)'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             trailing: TextButton(
               onPressed: _store.clearLegacy,
               child: Text(context.l10n.clearHistory),
@@ -475,7 +511,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           ..._store.legacyHistory.map(
             (query) => ListTile(
-              title: Text(query),
+              title: Text(query, maxLines: 2, overflow: TextOverflow.ellipsis),
               onTap: () => _executeSearch(query),
               trailing: IconButton(
                 icon: const Icon(Icons.north_west),
@@ -601,44 +637,75 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ],
     ),
-    body: Column(
-      children: [
-        ListTile(
-          dense: true,
-          title: Text(
-            _showResults
-                ? '${t('当前结果', 'Results')}: ${_executedQuery.isEmpty ? t('全部作品', 'All posts') : _executedQuery}'
-                : widget.site.name,
-          ),
-          subtitle: _showResults && _controller.text.trim() != _executedQuery
-              ? Text(t('条件已修改，尚未执行', 'Conditions edited, not submitted'))
-              : null,
-          trailing: IconButton(
-            tooltip: t('搜索条件与历史', 'Conditions and history'),
-            icon: Icon(_expanded ? Icons.expand_less : Icons.tune),
-            onPressed: () => setState(() => _expanded = !_expanded),
-          ),
-        ),
-        if (_expanded)
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight:
-                  MediaQuery.sizeOf(context).height *
-                  (_showResults ? 0.4 : 0.65),
+    body: LayoutBuilder(
+      builder: (context, bodyBounds) => Column(
+        children: [
+          ListTile(
+            dense: true,
+            title: Text(
+              _showResults
+                  ? '${t('当前结果', 'Results')}: ${_executedQuery.isEmpty ? t('全部作品', 'All posts') : _executedQuery}'
+                  : widget.site.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            child: SingleChildScrollView(
-              child: Column(children: [_panel(), _history()]),
+            subtitle: _showResults && _controller.text.trim() != _executedQuery
+                ? Text(t('条件已修改，尚未执行', 'Conditions edited, not submitted'))
+                : null,
+            trailing: IconButton(
+              tooltip: t('搜索条件与历史', 'Conditions and history'),
+              icon: Icon(_expanded ? Icons.expand_less : Icons.tune),
+              onPressed: () => setState(() => _expanded = !_expanded),
             ),
           ),
-        const Divider(height: 1),
-        Expanded(
-          child: !_ready
-              ? const Center(child: CircularProgressIndicator())
-              : _showResults
-              ? _results()
-              : const SizedBox.shrink(),
-        ),
-      ],
+          if (_expanded)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: math
+                    .min(
+                      bodyBounds.maxHeight * (_showResults ? 0.4 : 0.65),
+                      math.max(
+                        0,
+                        bodyBounds.maxHeight -
+                            MediaQuery.textScalerOf(context).scale(104),
+                      ),
+                    )
+                    .toDouble(),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    if (_store.invalidRecords > 0)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          t(
+                            '部分搜索记录异常，已备份原始内容并恢复有效记录。',
+                            'Damaged search data was backed up. Valid records were recovered.',
+                          ),
+                        ),
+                      ),
+                    _panel(),
+                    if (_store.invalidRecords > 0)
+                      TextButton(
+                        onPressed: _store.dismissRecoveryWarning,
+                        child: Text(t('关闭恢复提示', 'Dismiss recovery notice')),
+                      ),
+                    _history(),
+                  ],
+                ),
+              ),
+            ),
+          const Divider(height: 1),
+          Expanded(
+            child: !_ready
+                ? const Center(child: CircularProgressIndicator())
+                : _showResults
+                ? _results()
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
     ),
   );
 }

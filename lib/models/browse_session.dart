@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'booru_site.dart';
 import 'post.dart';
@@ -28,7 +29,7 @@ class BrowseSource extends ChangeNotifier {
   BooruSite? _site;
   Future<void> Function()? _loadMore;
   int? _generation;
-  List<GalleryEntry> get entries => List.unmodifiable(_entries);
+  List<GalleryEntry> get entries => UnmodifiableListView(_entries);
   bool? get safeMode => _provider?.safeMode;
   bool get active =>
       _provider != null && _provider!.sessionGeneration == _generation;

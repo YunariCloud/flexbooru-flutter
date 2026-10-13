@@ -49,6 +49,7 @@ Windows needs the Microsoft Visual C++ 2015–2022 x64 runtime. Uploaded release
 | Favorites and downloads | Favorites metadata, image/video downloads and a local download folder |
 | Personalization | Chinese/English UI, light/dark and AMOLED themes, accent colors and gradients |
 | Live LAN sync | Settings, favorites and site credentials across Windows and Android |
+| Google Drive sync | Password-encrypted cross-network merging and automatic foreground sync |
 | In-app updates | Automatic downloads with progress, cancellation and retry |
 
 ## Search and image browsing
@@ -106,6 +107,12 @@ AES-256-GCM encrypts traffic and the local journal. Keys use Android Keystore / 
 - With Ethernet and Wi-Fi both connected, temporarily keep only the phone's Wi-Fi network to isolate routing issues.
 - Avoid guest Wi-Fi, AP isolation and client isolation.
 - Scan a valid pairing code and approve on Windows. Update the host IP first when a paired device's address changes.
+
+## Google Drive encrypted sync
+
+Open **Settings → Google Drive sync**, configure OAuth clients and use the same Google account and independent sync password on both devices. Foreground polling runs every 30 seconds; local edits upload automatically and Android pauses in the background. Site credentials, favorites, settings and searches sync; downloaded files and device paths stay local.
+
+Create a Google Cloud project and enable Drive API first. The app includes configuration fields and instructions; see the [complete setup guide](GOOGLE_DRIVE_SYNC.md). Encrypted snapshots use a hidden application folder. A lost sync password cannot recover the cloud ciphertext.
 
 ## Automatic updates
 

@@ -1,6 +1,10 @@
 class UrlUtil {
   /// Fixes protocol-relative URLs (e.g., `//assets.yande.re/...`) and ensures valid HTTP/HTTPS URLs.
-  static String normalizeUrl(String? url, {String defaultScheme = 'https', String? host}) {
+  static String normalizeUrl(
+    String? url, {
+    String defaultScheme = 'https',
+    String? host,
+  }) {
     if (url == null || url.trim().isEmpty) return '';
     var trimmed = url.trim();
 
@@ -24,7 +28,7 @@ class UrlUtil {
   /// Checks if a file URL is a video format (webm, mp4, etc.)
   static bool isVideo(String? url) {
     if (url == null) return false;
-    final lower = url.toLowerCase();
+    final lower = (Uri.tryParse(url)?.path ?? url).toLowerCase();
     return lower.endsWith('.mp4') ||
         lower.endsWith('.webm') ||
         lower.endsWith('.mov') ||
@@ -34,7 +38,7 @@ class UrlUtil {
   /// Checks if a file URL is an animated gif
   static bool isGif(String? url) {
     if (url == null) return false;
-    return url.toLowerCase().endsWith('.gif');
+    return (Uri.tryParse(url)?.path ?? url).toLowerCase().endsWith('.gif');
   }
 
   /// Extracts file extension from URL

@@ -22,6 +22,23 @@ void main() {
     original = ApiClient().dio.httpClientAdapter;
   });
   tearDown(() => ApiClient().dio.httpClientAdapter = original);
+  testWidgets('search conditions fit a narrow screen with the keyboard open', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(MaterialApp(home: SearchScreen(site: site)));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump();
+    }
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   Future<void> openSearch(WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(home: SearchScreen(site: site)));

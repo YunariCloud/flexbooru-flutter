@@ -95,13 +95,34 @@ class SearchRecord {
     }
     return record;
   }
-  static List<SearchRecord> decode(String? value) => value == null
-      ? []
-      : (jsonDecode(value) as List)
-            .map(
-              (v) => SearchRecord.fromJson((v as Map).cast<String, dynamic>()),
-            )
-            .toList();
+  static List<SearchRecord> decode(
+    String? value, {
+    bool tolerant = false,
+    void Function()? onInvalid,
+  }) {
+    if (value == null) return [];
+    List<dynamic> items;
+    try {
+      items = jsonDecode(value) as List;
+    } catch (_) {
+      if (!tolerant) rethrow;
+      onInvalid?.call();
+      return [];
+    }
+    final records = <String, SearchRecord>{};
+    for (final item in items) {
+      try {
+        final record = SearchRecord.fromJson(
+          (item as Map).cast<String, dynamic>(),
+        );
+        records[record.id] = record;
+      } catch (_) {
+        if (!tolerant) rethrow;
+        onInvalid?.call();
+      }
+    }
+    return records.values.toList();
+  }
 }
 
 class SearchFilter {

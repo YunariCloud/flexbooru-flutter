@@ -20,13 +20,31 @@ class SearchStore extends ChangeNotifier {
   List<SearchRecord> _records = [];
   List<String> legacyHistory = [];
   bool _disposed = false;
+  int invalidRecords = 0;
   // Shared queue also serializes different search pages in the same process.
   static Future<void>? _writes;
   Future<void> reload() async {
     final prefs = await SyncPreferences.getInstance();
-    final records = SearchRecord.decode(prefs.getString(searchPreference));
+    final raw = prefs.getString(searchPreference);
+    var invalid = 0;
+    final records = SearchRecord.decode(
+      raw,
+      tolerant: true,
+      onInvalid: () => invalid++,
+    );
+    if (invalid > 0 &&
+        raw != null &&
+        !prefs.raw.containsKey('${searchPreference}_recovery_backup')) {
+      await prefs.raw.setString('${searchPreference}_recovery_backup', raw);
+    }
     if (_disposed) return;
     _records = records;
+    invalidRecords = invalid > 0
+        ? invalid
+        : prefs.raw.containsKey('${searchPreference}_recovery_backup') &&
+              prefs.raw.getBool('${searchPreference}_recovery_ack') != true
+        ? 1
+        : 0;
     legacyHistory = prefs.getStringList('flex_search_history') ?? [];
     notifyListeners();
   }
@@ -62,13 +80,15 @@ class SearchStore extends ChangeNotifier {
     final operation = (_writes ?? Future<void>.value()).then((_) async {
       final prefs = await SyncPreferences.getInstance();
       final previous = prefs.getString(searchPreference) ?? '[]';
-      final records = SearchRecord.decode(previous);
+      final records = SearchRecord.decode(previous, tolerant: true);
+      final baseline = jsonEncode(records.map((r) => r.toJson()).toList());
       change(records);
-      await prefs.setString(
+      final saved = await prefs.setString(
         searchPreference,
         jsonEncode(records.map((r) => r.toJson()).toList()),
-        previousValue: previous,
+        previousValue: baseline,
       );
+      if (!saved) throw StateError('Search records could not be saved');
       await reload();
     });
     late final Future<void> tail;
@@ -123,6 +143,21 @@ class SearchStore extends ChangeNotifier {
   Future<void> remove(String id) =>
       _update((records) => records.removeWhere((r) => r.id == id));
   Future<void> addHistory(String site, String query) => _update((records) {
+    _addHistory(records, site, query);
+  });
+  Future<void> recordSearch(String site, String query) => _update((records) {
+    records.removeWhere((r) => r.id == 'draft:$site');
+    records.add(
+      SearchRecord(
+        id: 'draft:$site',
+        kind: 'draft',
+        siteId: site,
+        query: query,
+      ),
+    );
+    _addHistory(records, site, query);
+  });
+  void _addHistory(List<SearchRecord> records, String site, String query) {
     query = query.trim();
     if (query.isEmpty) return;
     final used = max(
@@ -146,7 +181,15 @@ class SearchStore extends ChangeNotifier {
           ..sort((a, b) => b.used.compareTo(a.used));
     final removeIds = history.skip(20).map((r) => r.id).toSet();
     records.removeWhere((r) => removeIds.contains(r.id));
-  });
+  }
+
+  Future<void> dismissRecoveryWarning() async {
+    final prefs = await SyncPreferences.getInstance();
+    await prefs.raw.setBool('${searchPreference}_recovery_ack', true);
+    invalidRecords = 0;
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> clearHistory(String site) => _update(
     (records) =>
         records.removeWhere((r) => r.kind == 'history' && r.siteId == site),

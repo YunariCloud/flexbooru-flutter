@@ -13,6 +13,7 @@ import 'providers/posts_provider.dart';
 import 'providers/settings_provider.dart';
 import 'services/tag_translation_service.dart';
 import 'services/lan_sync_service.dart';
+import 'services/google_drive_sync_service.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/widgets/lan_sync_bindings.dart';
 
@@ -53,6 +54,10 @@ class FlexbooruApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PostsProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => syncService ?? LanSyncService()),
+        ChangeNotifierProvider(
+          create: (context) =>
+              GoogleDriveSyncService(context.read<LanSyncService>()),
+        ),
       ],
       child: LanSyncBindings(
         child: Consumer<SettingsProvider>(

@@ -15,6 +15,7 @@ import '../widgets/update_dialog.dart';
 import 'about_screen.dart';
 import 'lan_sync_screen.dart';
 import 'reverse_search_settings_screen.dart';
+import 'google_drive_sync_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -50,6 +51,22 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LanSyncScreen()),
+              ),
+            ),
+          if (!kIsWeb && (Platform.isAndroid || Platform.isWindows))
+            ListTile(
+              leading: const Icon(Icons.cloud_sync),
+              title: Text(l10n.isZh ? 'Google Drive 同步' : 'Google Drive sync'),
+              subtitle: Text(
+                l10n.isZh
+                    ? '跨网络同步，独立密码加密'
+                    : 'Sync across networks with password encryption',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const GoogleDriveSyncScreen(),
+                ),
               ),
             ),
           _buildSectionHeader(context, l10n.appearance),
