@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="#download-and-install">Installation</a> · <a href="#features">Features</a> · <a href="#lan-sync">LAN sync</a> · <a href="#automatic-updates">Updates</a> · <a href="#development">Development</a>
+  <a href="#download-and-install">Installation</a> · <a href="#features">Features</a> · <a href="#lan-sync">LAN sync</a> · <a href="#in-app-updates">Updates</a> · <a href="#development">Development</a>
 </p>
 
 ---
@@ -49,8 +49,7 @@ Windows needs the Microsoft Visual C++ 2015–2022 x64 runtime. Uploaded release
 | Favorites and downloads | Favorites metadata, image/video downloads and a local download folder |
 | Personalization | Chinese/English UI, light/dark and AMOLED themes, accent colors and gradients |
 | Live LAN sync | Settings, favorites and site credentials across Windows and Android |
-| Google Drive sync | Password-encrypted cross-network merging and automatic foreground sync |
-| In-app updates | Automatic downloads with progress, cancellation and retry |
+| In-app updates | User-controlled downloads and installation, with progress, cancellation and retry |
 
 ## Search and image browsing
 
@@ -108,15 +107,9 @@ AES-256-GCM encrypts traffic and the local journal. Keys use Android Keystore / 
 - Avoid guest Wi-Fi, AP isolation and client isolation.
 - Scan a valid pairing code and approve on Windows. Update the host IP first when a paired device's address changes.
 
-## Google Drive encrypted sync
+## In-app updates
 
-Open **Settings → Google Drive sync**, configure OAuth clients and use the same Google account and independent sync password on both devices. Foreground polling runs every 30 seconds; local edits upload automatically and Android pauses in the background. Site credentials, favorites, settings and searches sync; downloaded files and device paths stay local.
-
-Create a Google Cloud project and enable Drive API first. The app includes configuration fields and instructions; see the [complete setup guide](GOOGLE_DRIVE_SYNC.md). Encrypted snapshots use a hidden application folder. A lost sync password cannot recover the cloud ciphertext.
-
-## Automatic updates
-
-Startup checks and automatic downloads are enabled by default and can be disabled separately in Settings. Manual checks remain available. Closing the progress dialog leaves the download running. Only complete, verified packages can be opened.
+Startup checks are enabled by default and can be disabled in Settings. Manual checks remain available. New versions only trigger a notification: tap Download Update to start, or Later to keep your current version. Closing the progress dialog leaves a download you started running. Only complete, verified packages can be opened, and installation requires your action.
 
 - **Android**: tap **Install Update** to open the system installer. Grant permission to install apps from Flexbooru when prompted, return and tap again.
 - **Windows**: tap **Open Update Package**, close Flexbooru and extract the ZIP into the existing program folder.

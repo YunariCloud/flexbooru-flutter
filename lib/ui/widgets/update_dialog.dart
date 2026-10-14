@@ -1,10 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/i18n/app_localizations.dart';
-import '../../providers/settings_provider.dart';
 import '../../services/app_update_manager.dart';
 import '../../services/update_service.dart';
 
@@ -191,14 +188,17 @@ class UpdateCheckHelper {
   static Future<void> checkUpdate(
     BuildContext context, {
     bool silentIfLatest = false,
+    UpdateService? service,
+    AppUpdateManager? updateManager,
   }) async {
     final l10n = context.l10n;
-    final manager = AppUpdateManager.instance;
+    final manager = updateManager ?? AppUpdateManager.instance;
     if (manager.info != null &&
         (manager.busy || manager.state == UpdateDownloadState.ready)) {
       showDialog(
         context: context,
-        builder: (_) => UpdateDialog(updateInfo: manager.info!),
+        builder: (_) =>
+            UpdateDialog(updateInfo: manager.info!, manager: manager),
       );
       return;
     }
@@ -229,7 +229,7 @@ class UpdateCheckHelper {
     }
 
     try {
-      final info = await UpdateService().checkUpdate();
+      final info = await (service ?? UpdateService()).checkUpdate();
 
       if (dialogContext != null && dialogContext!.mounted) {
         Navigator.of(dialogContext!).pop();
@@ -238,13 +238,9 @@ class UpdateCheckHelper {
       if (!context.mounted) return;
 
       if (info.hasUpdate) {
-        if (context.read<SettingsProvider>().autoDownloadUpdate &&
-            info.downloadUrl != null) {
-          unawaited(AppUpdateManager.instance.download(info));
-        }
         showDialog(
           context: context,
-          builder: (_) => UpdateDialog(updateInfo: info),
+          builder: (_) => UpdateDialog(updateInfo: info, manager: manager),
         );
       } else if (!silentIfLatest) {
         showDialog(

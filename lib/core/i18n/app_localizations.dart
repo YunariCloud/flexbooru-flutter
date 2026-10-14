@@ -261,11 +261,6 @@ class AppLocalizations {
       : 'Failed to check for updates, please check network and try again';
   String get openReleasesPage => isZh ? '前往 Releases 页面' : 'Open Releases Page';
   String get autoCheckUpdates => isZh ? '启动时检查更新' : 'Check Updates on Startup';
-  String get autoDownloadUpdates =>
-      isZh ? '自动下载更新' : 'Download Updates Automatically';
-  String get autoDownloadUpdatesSub => isZh
-      ? '发现新版本后在应用内下载，安装时由你确认'
-      : 'Download new releases in the app; you choose when to install';
   String get downloadUpdate => isZh ? '下载更新' : 'Download Update';
   String get downloadingUpdate => isZh ? '正在下载更新' : 'Downloading update';
   String get verifyingUpdate => isZh ? '正在校验更新包' : 'Verifying update';
@@ -296,8 +291,8 @@ class AppLocalizations {
       ? '下载完成后打开压缩包，退出 Flexbooru，再将包内文件解压到原程序目录。'
       : 'Open the ZIP, close Flexbooru, then extract its contents to your existing app folder.';
   String get autoCheckUpdatesSub => isZh
-      ? '应用启动时自动检测是否有可用新版本'
-      : 'Automatically check for new versions on app startup';
+      ? '启动时提醒新版本，由你选择是否下载和安装'
+      : 'Notify on startup; you choose whether to download and install';
 
   // Download Settings
   String get downloadSettings => isZh ? '下载设置' : 'Download Settings';

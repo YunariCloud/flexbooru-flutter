@@ -57,7 +57,6 @@ class LanSyncService extends ChangeNotifier {
   int _generation = 0;
   int _retrySeconds = 2;
   Future<bool> Function(String, Object?, Object?)? _appHook;
-  final changes = StreamController<void>.broadcast();
 
   String get deviceId => _state?.device ?? '';
   bool get isHosting => _server != null;
@@ -247,7 +246,6 @@ class LanSyncService extends ChangeNotifier {
         SyncPreferences.remoteChanges.add({key});
       }
       await _broadcast(delta);
-      if (!_disposed) changes.add(null);
       return true;
     });
   }
@@ -269,13 +267,7 @@ class LanSyncService extends ChangeNotifier {
         if (attachToApp) SyncPreferences.remoteChanges.add(changed);
         _notify();
         await _broadcast(accepted);
-        if (!_disposed) changes.add(null);
       });
-
-  Future<void> mergeCloudRecords(List<dynamic> records) async {
-    await initialize();
-    await _merge(records, snapshot: true);
-  }
 
   Future<void> _broadcast(List<dynamic> records) async {
     for (final link in _links.toList().where((link) => link.authorized)) {

@@ -5,10 +5,66 @@ import 'package:flexbooru/services/update_service.dart';
 import 'package:flexbooru/ui/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'support/mock_http_adapter.dart';
 import 'app_update_manager_test.dart' show packageResponse, updateInfo;
 
+class AvailableUpdateService extends UpdateService {
+  @override
+  Future<UpdateInfo> checkUpdate({String? currentVersion}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    return updateInfo(name: 'flexbooru-android-universal.apk');
+  }
+}
+
 void main() {
+  testWidgets('checking and postponing never download despite legacy setting', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'flex_auto_download_update': true});
+    var requests = 0;
+    final dio = Dio()
+      ..httpClientAdapter = MockHttpAdapter((_) {
+        requests++;
+        return packageResponse();
+      });
+    final manager = AppUpdateManager(dio: dio, platform: 'android');
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => UpdateCheckHelper.checkUpdate(
+                  context,
+                  service: AvailableUpdateService(),
+                  updateManager: manager,
+                ),
+                child: const Text('Check'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Check'));
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('下载更新'), findsOneWidget);
+      expect(manager.state, UpdateDownloadState.idle);
+      expect(requests, 0);
+      await tester.tap(find.text('稍后再说'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdateDialog), findsNothing);
+      expect(requests, 0);
+      await tester.pumpWidget(const SizedBox());
+    } finally {
+      manager.dispose();
+      dio.close(force: true);
+    }
+  });
   testWidgets('failed asset lookup does not claim device incompatibility', (
     tester,
   ) async {

@@ -195,7 +195,10 @@ jobs:
           path: dist
       - name: Create release notes
         run: |
-          cat > release-notes.md <<'NOTES'
+          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
+            cp "docs/releases/$RELEASE_TAG.md" release-notes.md
+          else
+            cat > release-notes.md <<'NOTES'
           自动构建产物 / Automated builds:
           - Android universal APK：直接安装，覆盖 arm64、armv7 和 x86_64。
           - Windows x64 ZIP：解压完整目录后运行 flexbooru.exe；保留 DLL 和 data 目录。
@@ -205,6 +208,7 @@ jobs:
           原项目 / Upstream: https://github.com/flexbooru/flexbooru
           许可证 / License: GPL-3.0
           NOTES
+          fi
       - name: Publish only after both platforms succeed
         run: |
           if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
@@ -226,7 +230,7 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${packages[@]}" --target "$GITHUB_SHA" \
               --title "Flexbooru Flutter $RELEASE_TAG" --draft \
-              --prerelease="$PRERELEASE" --generate-notes --notes-file release-notes.md
+              --prerelease="$PRERELEASE" --notes-file release-notes.md
           fi
           python3 .github/scripts/release_packages.py clean-release --tag "$RELEASE_TAG" --label "$ARTIFACT_LABEL"
           if [[ "$PRERELEASE" == 'true' ]]; then

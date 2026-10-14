@@ -15,7 +15,6 @@ class SettingsProvider extends ChangeNotifier {
   static const String _keyQuality = 'flex_image_quality';
   static const String _keyLanguage = 'flex_language';
   static const String _keyAutoCheckUpdate = 'flex_auto_check_update';
-  static const String _keyAutoDownloadUpdate = 'flex_auto_download_update';
   static const String _keyDownloadPath = 'flex_download_path';
   static const String _keyTagLanguage = 'flex_tag_language';
 
@@ -31,7 +30,6 @@ class SettingsProvider extends ChangeNotifier {
   String _languageCode = 'system'; // 'system', 'zh', 'en'
   String _tagLanguage = 'system'; // 'system', 'zh', 'en'
   bool _autoCheckUpdate = true;
-  bool _autoDownloadUpdate = true;
   String _downloadPath = '';
 
   ThemeMode get themeMode => _themeMode;
@@ -62,7 +60,6 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   bool get autoCheckUpdate => _autoCheckUpdate;
-  bool get autoDownloadUpdate => _autoDownloadUpdate;
   String get downloadPath => _downloadPath;
 
   Locale? get locale {
@@ -113,7 +110,6 @@ class SettingsProvider extends ChangeNotifier {
     _languageCode = prefs.getString(_keyLanguage) ?? 'system';
     _tagLanguage = prefs.getString(_keyTagLanguage) ?? 'system';
     _autoCheckUpdate = prefs.getBool(_keyAutoCheckUpdate) ?? true;
-    _autoDownloadUpdate = prefs.getBool(_keyAutoDownloadUpdate) ?? true;
     _downloadPath = prefs.getString(_keyDownloadPath) ?? '';
 
     notifyListeners();
@@ -140,14 +136,6 @@ class SettingsProvider extends ChangeNotifier {
     _autoCheckUpdate = val;
     final prefs = await SyncPreferences.getInstance();
     await prefs.setBool(_keyAutoCheckUpdate, val);
-    notifyListeners();
-  }
-
-  Future<void> setAutoDownloadUpdate(bool value) async {
-    await ready;
-    _autoDownloadUpdate = value;
-    final prefs = await SyncPreferences.getInstance();
-    await prefs.setBool(_keyAutoDownloadUpdate, value);
     notifyListeners();
   }
 

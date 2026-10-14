@@ -13,7 +13,7 @@ import 'providers/posts_provider.dart';
 import 'providers/settings_provider.dart';
 import 'services/tag_translation_service.dart';
 import 'services/lan_sync_service.dart';
-import 'services/google_drive_sync_service.dart';
+import 'services/retired_cloud_cleanup.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/widgets/lan_sync_bindings.dart';
 
@@ -31,6 +31,11 @@ void main() async {
 
   final sync = LanSyncService();
   if (!kIsWeb && (Platform.isAndroid || Platform.isWindows)) {
+    try {
+      await clearRetiredCloudCredentials();
+    } catch (_) {
+      // Retry credential cleanup on the next launch without blocking LAN sync.
+    }
     try {
       await sync.initialize();
     } catch (_) {
@@ -54,10 +59,6 @@ class FlexbooruApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PostsProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => syncService ?? LanSyncService()),
-        ChangeNotifierProvider(
-          create: (context) =>
-              GoogleDriveSyncService(context.read<LanSyncService>()),
-        ),
       ],
       child: LanSyncBindings(
         child: Consumer<SettingsProvider>(

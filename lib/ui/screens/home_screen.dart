@@ -149,10 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final info = await UpdateService().checkUpdate();
       if (!mounted) return;
       if (info.hasUpdate) {
-        if (settingsProv.autoDownloadUpdate && info.downloadUrl != null) {
-          unawaited(AppUpdateManager.instance.download(info));
-          return;
-        }
         final l10n = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

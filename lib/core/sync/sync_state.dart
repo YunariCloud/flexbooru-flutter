@@ -21,6 +21,7 @@ const syncedSettings = {
   'flex_language',
   'flex_tag_language',
   'flex_auto_check_update',
+  // Accepted for existing journals and older peers; the app ignores this flag.
   'flex_auto_download_update',
   'flexbooru_active_site_id',
 };
